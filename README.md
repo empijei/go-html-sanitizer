@@ -1,2 +1,5 @@
 # go-html-sanitizer
 A Go HTML sanitizer
+
+# DISCLAIMER
+THIS PROJECT IS NOT PRODUCTION READY, PLEASE DO NOT USE.
