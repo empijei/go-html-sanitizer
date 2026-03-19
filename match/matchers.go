@@ -2,28 +2,47 @@ package match
 
 import (
 	"strconv"
+	"strings"
 	"unicode"
 )
 
 // OptSpace consumes whitespace, always matches.
-func OptSpace(c *Cursor) bool {
+//
+//	/\s*/
+func OptSpace(s string) (rem string, ok bool) {
 	for {
-		r, size := c.Peek()
-		if r != ' ' && r != '\t' {
+		size, r := peek(s)
+		if size == 0 || !unicode.IsSpace(r) {
 			break
 		}
-		c.Advance(size)
+		s = s[size:]
 	}
-	return true
+	return s, true
 }
 
 // Integer consumes a number, only returns true if it was a number.
 //
 // It doesn't allow for decimal points, exponential notation or similar
 // variations.
-func Integer(c *Cursor) bool {
-	_, ok := readInt(c)
-	return ok
+func Integer(s string) (rem string, ok bool) {
+	adv, ok := readInt(s)
+	return s[adv:], ok
+}
+
+func readInt(s string) (advance int, ok bool) {
+	size, r := peek(s)
+	if r == '-' || r == '+' {
+		advance += size
+	}
+	for {
+		size, r := peek(s[advance:])
+		if size == 0 || r < '0' || r > '9' {
+			break
+		}
+		ok = true
+		advance += size
+	}
+	return advance, ok
 }
 
 // IntegerBetween is like [Integer], but only matches if the number is between the two values,
@@ -31,99 +50,82 @@ func Integer(c *Cursor) bool {
 //
 // Numbers that overflow are rejected.
 func IntegerBetween(low, high int64) Matcher {
-	return func(c *Cursor) bool {
-		buf, ok := readInt(c)
+	return func(s string) (rem string, ok bool) {
+		adv, ok := readInt(s)
 		if !ok {
-			return false
+			return s, false
 		}
-		val, err := strconv.ParseInt(buf, 10, 64)
+		val, err := strconv.ParseInt(s[:adv], 10, 64)
 		if err != nil {
-			return false
+			return s, false
 		}
-		return low <= val && val <= high
+		return s[adv:], low <= val && val <= high
 	}
-}
-
-func readInt(c *Cursor) (buf string, ok bool) {
-	start := c.Pos
-	if r, size := c.Peek(); r == '-' || r == '+' {
-		c.Advance(size)
-	}
-	for {
-		r, size := c.Peek()
-		if r < '0' || r > '9' {
-			break
-		}
-		ok = true
-		c.Advance(size)
-	}
-	return c.Data[start:c.Pos], ok
 }
 
 // Words matches a set of fixed words.
 func Words(accept ...string) Matcher {
-	// Extreme example: build a trie for matching speed.
-	t := &trie{}
+	var t trie
 	for _, w := range accept {
 		t.insert(w)
 	}
-	return func(c *Cursor) bool {
-		return t.match(c)
+	return func(s string) (rem string, ok bool) {
+		adv, ok := t.match(s, 0)
+		return s[adv:], ok
 	}
 }
 
 // Exact matches exactly the given word.
 func Exact(accept string) Matcher {
-	return func(c *Cursor) bool {
-		return c.Consume(len(accept)) == accept
+	return func(s string) (string, bool) {
+		if !strings.HasPrefix(s, accept) {
+			return s, false
+		}
+		return s[len(accept):], true
 	}
 }
 
 // Any consume the rest of the input.
-func Any(c *Cursor) bool {
-	c.Pos = len(c.Data)
-	return true
+func Any(_ string) (rem string, ok bool) {
+	return "", true
 }
 
 // None only matches the empty string.
-func None(c *Cursor) bool {
-	return c.Pos >= len(c.Data)
+func None(s string) (rem string, ok bool) {
+	return s, s == ""
 }
 
-// ConsumeAll consumes all runes that match.
+// RunesFunc returns a matcher that consumes a sequence of runes that match at least
+// one of the provided matcher.
 //
 // Returns false IFF none matched.
-func ConsumeAll(c *Cursor, match func(r rune) bool) bool {
-	r, size := c.Peek()
-	if !match(r) {
-		return false
-	}
-	c.Advance(size)
-
-	r, size = c.Peek()
-	for size != 0 {
-		if !match(r) {
-			break
+func RunesFunc(match ...func(r rune) bool) Matcher {
+	return func(s string) (rem string, ok bool) {
+		var adv int
+		for {
+			size, r := peek(s[adv:])
+			var found bool
+			for _, m := range match {
+				if !m(r) {
+					continue
+				}
+				found = true
+				break
+			}
+			if !found {
+				break
+			}
+			adv += size
 		}
-		c.Advance(size)
-		r, size = c.Peek()
+		return s[adv:], adv != 0
 	}
-	return true
 }
 
-// Letters returns whether the sequence is at least one Letter.
-func Letters(c *Cursor) bool {
-	return ConsumeAll(c, unicode.IsLetter)
-}
-
-// Numbers returns whether the sequence is at least one number.
-func Numbers(c *Cursor) bool {
-	return ConsumeAll(c, unicode.IsNumber)
-}
-
-// LettersAndNumbers returns whether the sequence is at least one number.
-func LettersAndNumbers(c *Cursor) bool {
-	return ConsumeAll(c, func(r rune) bool {
-		return unicode.IsLetter(r) || unicode.IsNumber(r)
-	})
-}
+var (
+	// Letters returns whether the sequence is at least one Letter.
+	Letters = RunesFunc(unicode.IsLetter)
+	// Numbers returns whether the sequence is at least one number.
+	Numbers = RunesFunc(unicode.IsNumber)
+	// LettersAndNumbers returns whether the sequence is at least one number.
+	LettersAndNumbers = RunesFunc(unicode.IsLetter, unicode.IsNumber)
+)

@@ -1,40 +1,50 @@
 package match
 
-// Matcher is a function that potentially advances the cursor and returns whether the
-// consumed data matches.
+import "unicode/utf8"
+
+// peek reads the first rune in a string, like in a for loop.
+func peek(s string) (size int, r rune) {
+	r, size = utf8.DecodeRuneInString(s)
+	return size, r
+}
+
+// Matcher is a function that potentially consumes part of the string and returns
+// the leftover string and whether the consumed data matches.
 //
-// If a matcher doesn't match, they can leave the cursor in an invalid state.
-type Matcher = func(*Cursor) bool
+// If a matcher doesn't match, the returned remainder is considered invalid.
+type Matcher = func(string) (remainder string, ok bool)
 
 // Check checks whether the matcher matches the given string.
 func Check(m Matcher, in string) bool {
-	c := Cursor{Data: in}
-	return m(&c) && c.AtEnd()
+	rem, ok := m(in)
+	return ok && len(rem) == 0
 }
 
 // Combine combines a sequence of matchers.
 func Combine(seq ...Matcher) Matcher {
-	return func(c *Cursor) bool {
+	return func(s string) (rem string, ok bool) {
+		rem = s
 		for _, m := range seq {
-			if !m(c) {
-				return false
+			rem, ok = m(rem)
+			if !ok {
+				return rem, false
 			}
 		}
-		return true
+		return rem, true
 	}
 }
 
 // Or creates an alternative of matchers.
 func Or(alt ...Matcher) Matcher {
-	return func(c *Cursor) bool {
-		back := c.Pos
+	return func(s string) (rem string, ok bool) {
+		back := s
 		for _, m := range alt {
-			if m(c) {
-				return true
+			rem, ok := m(back)
+			if ok {
+				return rem, true
 			}
-			c.Pos = back // Reset and retry with the next.
 		}
-		return false
+		return back, false
 	}
 }
 

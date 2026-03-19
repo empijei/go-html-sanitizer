@@ -24,15 +24,14 @@ func (t *trie) insert(w string) {
 	child.insert(w[size:])
 }
 
-func (t *trie) match(c *Cursor) bool {
-	if c.Pos >= len(c.Data) {
-		return t.final
+func (t *trie) match(s string, start int) (advance int, ok bool) {
+	if s == "" {
+		return start, t.final
 	}
-	r, size := c.Peek()
+	size, r := peek(s[start:])
 	child := t.children[r]
 	if child == nil {
-		return t.final
+		return start, t.final
 	}
-	c.Advance(size)
-	return child.match(c)
+	return child.match(s, start+size)
 }
