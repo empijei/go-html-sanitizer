@@ -79,6 +79,18 @@ func Words(accept ...string) Matcher {
 	}
 }
 
+// WordsToLower matches a set of fixed words, lowercasing all parameters and inputs.
+func WordsToLower(accept ...string) Matcher {
+	t := trie{toLower: true}
+	for _, w := range accept {
+		t.insert(w)
+	}
+	return func(s string) (rem string, ok bool) {
+		adv, ok := t.match(s, 0)
+		return s[adv:], ok
+	}
+}
+
 // Exact matches exactly the given word.
 //
 //	/word/
@@ -144,3 +156,38 @@ var (
 	// 	/[\p{N}\p{L}]+/
 	LettersAndNumbers = RunesFunc(unicode.IsLetter, unicode.IsNumber)
 )
+
+type asciiSet [256]bool
+
+func (a *asciiSet) insert(b byte)   { (*a)[b] = true }
+func (a *asciiSet) has(b byte) bool { return (*a)[b] }
+
+// ASCII constructs a matcher that matches the given ascii chars.
+func ASCII(chars ...byte) Matcher {
+	var as asciiSet
+	for _, c := range chars {
+		as.insert(c)
+	}
+	return func(s string) (rem string, ok bool) {
+		for {
+			size, r := peek(s)
+			if size != 1 || !as.has(byte(r)) { //nolint: gosec // Checked.
+				break
+			}
+			s = s[size:]
+		}
+		return s, true
+	}
+}
+
+// Runes constructs a matcher that matches the given runes.
+func Runes(chars ...rune) Matcher {
+	rs := map[rune]struct{}{}
+	for _, r := range chars {
+		rs[r] = struct{}{}
+	}
+	return RunesFunc(func(r rune) bool {
+		_, ok := rs[r]
+		return ok
+	})
+}

@@ -119,4 +119,28 @@ func TestBasic(t *testing.T) {
 		)
 		check(t, m, "AB2", false)
 	})
+
+	t.Run("ASCII", func(t *testing.T) {
+		m := match.ASCII('a', 'b', 'c')
+		check(t, m, "abc", true)
+		check(t, m, "abcd", false)
+		check(t, m, "d", false)
+	})
+
+	t.Run("Runes", func(t *testing.T) {
+		m := match.Runes('A', 'é')
+		check(t, m, "AéA", true)
+		check(t, m, "b", false)
+	})
+
+	t.Run("WordsToLower", func(t *testing.T) {
+		m := match.WordsToLower("HelloWorld", "FooBar")
+		check(t, m, "helloworld", true)
+		check(t, m, "HELLOWORLD", true)
+		check(t, m, "HelloWorld", true)
+		check(t, m, "foobar", true)
+		check(t, m, "FOOBAR", true)
+		check(t, m, "FooBar", true)
+		check(t, m, "baz", false)
+	})
 }

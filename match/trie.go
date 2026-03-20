@@ -1,10 +1,14 @@
 package match
 
-import "unicode/utf8"
+import (
+	"unicode"
+	"unicode/utf8"
+)
 
 type trie struct {
 	children map[rune]*trie
 	final    bool
+	toLower  bool
 }
 
 func (t *trie) insert(w string) {
@@ -16,9 +20,12 @@ func (t *trie) insert(w string) {
 	if t.children == nil {
 		t.children = map[rune]*trie{}
 	}
+	if t.toLower {
+		r = unicode.ToLower(r)
+	}
 	child := t.children[r]
 	if child == nil {
-		child = &trie{}
+		child = &trie{toLower: t.toLower}
 	}
 	t.children[r] = child
 	child.insert(w[size:])
@@ -29,6 +36,9 @@ func (t *trie) match(s string, start int) (advance int, ok bool) {
 		return start, t.final
 	}
 	size, r := peek(s[start:])
+	if t.toLower {
+		r = unicode.ToLower(r)
+	}
 	child := t.children[r]
 	if child == nil {
 		return start, t.final
