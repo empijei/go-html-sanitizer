@@ -8,7 +8,7 @@ import (
 
 // OptSpace consumes whitespace, always matches.
 //
-//	/\s*/
+//	/[[:space:]]*/
 func OptSpace(s string) (rem string, ok bool) {
 	for {
 		size, r := peek(s)
@@ -24,6 +24,8 @@ func OptSpace(s string) (rem string, ok bool) {
 //
 // It doesn't allow for decimal points, exponential notation or similar
 // variations.
+//
+//	/(-|+)?\d+/
 func Integer(s string) (rem string, ok bool) {
 	adv, ok := readInt(s)
 	return s[adv:], ok
@@ -64,6 +66,8 @@ func IntegerBetween(low, high int64) Matcher {
 }
 
 // Words matches a set of fixed words.
+//
+//	/(word1|word2|word3)/
 func Words(accept ...string) Matcher {
 	var t trie
 	for _, w := range accept {
@@ -76,6 +80,8 @@ func Words(accept ...string) Matcher {
 }
 
 // Exact matches exactly the given word.
+//
+//	/word/
 func Exact(accept string) Matcher {
 	return func(s string) (string, bool) {
 		if !strings.HasPrefix(s, accept) {
@@ -86,11 +92,15 @@ func Exact(accept string) Matcher {
 }
 
 // Any consume the rest of the input.
+//
+//	/.*/
 func Any(_ string) (rem string, ok bool) {
 	return "", true
 }
 
 // None only matches the empty string.
+//
+//	//
 func None(s string) (rem string, ok bool) {
 	return s, s == ""
 }
@@ -123,9 +133,14 @@ func RunesFunc(match ...func(r rune) bool) Matcher {
 
 var (
 	// Letters returns whether the sequence is at least one Letter.
+	//
+	// 	/[\p{L}]+/
 	Letters = RunesFunc(unicode.IsLetter)
 	// Numbers returns whether the sequence is at least one number.
+	//
+	// 	/[\p{N}]+/
 	Numbers = RunesFunc(unicode.IsNumber)
 	// LettersAndNumbers returns whether the sequence is at least one number.
+	// 	/[\p{N}\p{L}]+/
 	LettersAndNumbers = RunesFunc(unicode.IsLetter, unicode.IsNumber)
 )

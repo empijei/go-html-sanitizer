@@ -1,3 +1,10 @@
+// Package match implements simple, linear matchers for strings.
+//
+// This package is like a simplified version of regexp in go syntax to help debugging
+// and to reduce the chance for errors.
+//
+// Matchers do not perform backtracking and ambiguous patterns might lead to strings
+// not being matched while an equivalent regexp would match, and that is intentional.
 package match
 
 import "unicode/utf8"
@@ -14,7 +21,7 @@ func peek(s string) (size int, r rune) {
 // If a matcher doesn't match, the returned remainder is considered invalid.
 type Matcher = func(string) (remainder string, ok bool)
 
-// Check checks whether the matcher matches the given string.
+// Check checks whether the matcher matches the full given string.
 func Check(m Matcher, in string) bool {
 	rem, ok := m(in)
 	return ok && len(rem) == 0
