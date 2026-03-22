@@ -53,11 +53,11 @@ func TestPolicy(t *testing.T) {
 				"b": nil,
 			},
 			Remove: map[sanitize.TagName]string{
-				"b": "removed",
+				"b": "REMOVED",
 			},
 		}
 		got := p.SanitizeString(`normal text <b>bold text</b> <div>not allowed</div>`)
-		tst.Is(`normal text removed not allowed`, got, t)
+		tst.Is(`normal text REMOVED not allowed`, got, t)
 	})
 
 	t.Run("add attribute", func(t *testing.T) {

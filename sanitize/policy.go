@@ -3,6 +3,7 @@ package sanitize
 import (
 	"bytes"
 	"io"
+	"maps"
 	"strings"
 
 	"github.com/empijei/go-html-sanitizer/dom"
@@ -52,13 +53,15 @@ type Policy struct {
 	// ModifyAttributes allows to modify attributes for nodes.
 	//
 	// Modify is executed before filters and DOES NOT imply Allow.
+	//
+	// Modifers MUST NOT be nil.
 	ModifyAttributes map[TagName]AttributeModifier
 	// Remove allows to optionally specify tags that should be completely removed,
 	// including all their children.
 	//
 	// This overrides Allow.
 	//
-	// The tags are replaced with the specified string.
+	// The tags are replaced with the specified (possibly empty) string.
 	Remove map[TagName]string
 }
 
@@ -160,5 +163,115 @@ func replaceWithText(n *html.Node, text string) {
 		DataAtom:   0,
 		Namespace:  "",
 		Attr:       nil,
+	}
+}
+
+// Relax modifies the policy so that all elements that would be allowed by either
+// policy will now be allowed.
+//
+// Relax calls MergeModify.
+//
+// If there is a conflict on Remove, the existing one takes precedence.
+func (p *Policy) Relax(other *Policy) {
+	for tag, otherAttributeMap := range other.Allow {
+		pAttributeMap, ok := p.Allow[tag]
+		if !ok {
+			p.Allow[tag] = maps.Clone(otherAttributeMap)
+			continue
+		}
+		orAttrMaps(pAttributeMap, otherAttributeMap)
+	}
+
+	orAttrMaps(p.AllowGlobal, other.AllowGlobal)
+
+	p.MergeModify(other)
+
+	for tag := range p.Remove {
+		_, ok := other.Remove[tag]
+		if !ok {
+			delete(p.Remove, tag)
+		}
+	}
+}
+
+func orAttrMaps(this, other map[AttributeName]AttributeFilter) {
+	for otherAttrName, otherFilter := range other {
+		pFilter, ok := this[otherAttrName]
+		if !ok || otherFilter == nil {
+			this[otherAttrName] = otherFilter
+			continue
+		}
+		if pFilter == nil {
+			continue
+		}
+		// Both are not nil, OR them.
+		this[otherAttrName] = func(attrValue string) (keep bool) {
+			return pFilter(attrValue) || otherFilter(attrValue)
+		}
+	}
+}
+
+// Restrict modifies the policy so that all elements that would be allowed by both
+// policies will now be allowed.
+//
+// Restrict calls MergeModify.
+//
+// If there is a conflict on Remove, the existing one takes precedence.
+func (p *Policy) Restrict(other *Policy) {
+	for tag, otherAttributeMap := range other.Allow {
+		pAttributeMap, ok := p.Allow[tag]
+		if !ok {
+			continue
+		}
+		andAttrMaps(pAttributeMap, otherAttributeMap)
+	}
+	for tag := range p.Allow {
+		_, ok := other.Allow[tag]
+		if ok {
+			continue
+		}
+		delete(p.Allow, tag)
+	}
+
+	andAttrMaps(p.AllowGlobal, other.AllowGlobal)
+
+	p.MergeModify(other)
+
+	for tag, repl := range other.Remove {
+		_, ok := p.Remove[tag]
+		if !ok {
+			p.Remove[tag] = repl
+		}
+	}
+}
+
+func andAttrMaps(this, other map[AttributeName]AttributeFilter) {
+	for otherAttrName, otherFilter := range other {
+		pFilter, ok := this[otherAttrName]
+		if !ok || otherFilter == nil {
+			continue
+		}
+		if pFilter == nil {
+			this[otherAttrName] = otherFilter
+		}
+		// Both are not nil, AND them.
+		this[otherAttrName] = func(attrValue string) (keep bool) {
+			return pFilter(attrValue) && otherFilter(attrValue)
+		}
+	}
+}
+
+// MergeModify merges into the policy all the modifiers from the other policy.
+func (p *Policy) MergeModify(other *Policy) {
+	for tag, otherModif := range other.ModifyAttributes {
+		pModif, ok := p.ModifyAttributes[tag]
+		if !ok {
+			p.ModifyAttributes[tag] = otherModif
+			continue
+		}
+		p.ModifyAttributes[tag] = func(tagName string, attrs *[]html.Attribute) {
+			pModif(tagName, attrs)
+			otherModif(tagName, attrs)
+		}
 	}
 }
