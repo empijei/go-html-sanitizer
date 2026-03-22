@@ -10,14 +10,13 @@ import (
 	"golang.org/x/net/html"
 )
 
-func TestEvict(t *testing.T) {
+func TestRemoveNode(t *testing.T) {
 	check := func(t *testing.T, in, want string) {
 		t.Helper()
-		b := dom.NewBody()
-		parsed := tst.Do(html.ParseFragment(strings.NewReader(in), b))(t)
-		tst.Is(1, len(parsed), t)
+		parsed := tst.Do(dom.ParseInBody(strings.NewReader(in)))(t)
+		tst.Be(parsed.FakeRoot.FirstChild != nil, t)
 
-		root := parsed[0]
+		root := parsed.FakeRoot.FirstChild
 
 		t.Log("Before removal:\n", render(root))
 		for desc := range root.Descendants() {
@@ -68,6 +67,7 @@ func TestEvict(t *testing.T) {
 			want := `<div id="a">1<div id="b">2</div>3<div id="c">4</div>5</div>`
 			check(t, doc, want)
 		})
+		// TODO only child
 	})
 
 	t.Run("with children", func(t *testing.T) {
@@ -90,6 +90,7 @@ func TestEvict(t *testing.T) {
 				`6<div id="e">7</div>8<div id="f">9</div>10</div>`
 			check(t, doc, want)
 		})
+		// TODO first but not only child
 	})
 }
 
@@ -107,4 +108,8 @@ func renderStep(sb *strings.Builder, n *html.Node, lvl int) {
 	for ch := range n.ChildNodes() {
 		renderStep(sb, ch, lvl+1)
 	}
+}
+
+func TestFilterAttributes(t *testing.T) {
+	// GEMINI implement
 }
