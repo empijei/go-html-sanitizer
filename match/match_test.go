@@ -1,9 +1,12 @@
 package match_test
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/empijei/go-html-sanitizer/dom"
 	"github.com/empijei/go-html-sanitizer/match"
+	"github.com/empijei/tst"
 )
 
 var (
@@ -143,4 +146,9 @@ func TestBasic(t *testing.T) {
 		check(t, m, "FooBar", true)
 		check(t, m, "baz", false)
 	})
+}
+
+func TestAtom(t *testing.T) {
+	n := tst.Do(dom.ParseInBody(strings.NewReader(`<A-CUSTOM-ELEM></A-CUSTOM-ELEM>`)))(t)
+	tst.Is("a-custom-elem", n.FakeRoot.FirstChild.Data, t)
 }

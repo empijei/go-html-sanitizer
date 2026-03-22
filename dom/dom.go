@@ -44,8 +44,8 @@ func ParseInBody(in io.Reader) (*Fragment, error) {
 	for i, n := range children {
 		n.Parent = root
 		if i < len(children)-1 {
-			children[i].NextSibling = children[i+1]
-			children[i+1].PrevSibling = children[i]
+			n.NextSibling = children[i+1]
+			children[i+1].PrevSibling = n
 		}
 	}
 	return &Fragment{
