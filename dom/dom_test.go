@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/empijei/sanitize/dom"
+	"github.com/empijei/go-html-sanitizer/dom"
 	"github.com/empijei/tst"
 	"golang.org/x/net/html"
 )
@@ -67,13 +67,22 @@ func TestRemoveNode(t *testing.T) {
 			want := `<div id="a">1<div id="b">2</div>3<div id="c">4</div>5</div>`
 			check(t, doc, want)
 		})
-		// TODO only child
+		t.Run("only child", func(t *testing.T) {
+			doc := `<div id="a"><div id="DELETE"></div></div>`
+			want := `<div id="a"></div>`
+			check(t, doc, want)
+		})
 	})
 
 	t.Run("with children", func(t *testing.T) {
 		t.Run("first child", func(t *testing.T) {
 			doc := `<div id="a"><div id="DELETE">6<div id="e">7</div>8<div id="f">9</div>10</div></div>`
 			want := `<div id="a">6<div id="e">7</div>8<div id="f">9</div>10</div>`
+			check(t, doc, want)
+		})
+		t.Run("first but not only child", func(t *testing.T) {
+			doc := `<div id="a"><div id="DELETE">6<div id="e">7</div>8</div>9<div id="f">10</div></div>`
+			want := `<div id="a">6<div id="e">7</div>89<div id="f">10</div></div>`
 			check(t, doc, want)
 		})
 		t.Run("middle child", func(t *testing.T) {
@@ -90,7 +99,6 @@ func TestRemoveNode(t *testing.T) {
 				`6<div id="e">7</div>8<div id="f">9</div>10</div>`
 			check(t, doc, want)
 		})
-		// TODO first but not only child
 	})
 }
 
@@ -111,5 +119,17 @@ func renderStep(sb *strings.Builder, n *html.Node, lvl int) {
 }
 
 func TestFilterAttributes(t *testing.T) {
-	// GEMINI implement
+	doc := `<div id="a" class="b" data-c="d"></div>`
+	parsed := tst.Do(dom.ParseInBody(strings.NewReader(doc)))(t)
+	node := parsed.FakeRoot.FirstChild
+
+	dom.FilterAttributes(node, func(n *html.Node, attr html.Attribute) bool {
+		return attr.Key == "id" || attr.Key == "data-c"
+	})
+
+	var buf strings.Builder
+	tst.No(html.Render(&buf, node), t)
+	got := buf.String()
+	want := `<div id="a" data-c="d"></div>`
+	tst.Is(want, got, t)
 }

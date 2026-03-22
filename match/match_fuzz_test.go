@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/empijei/sanitize/match"
+	"github.com/empijei/go-html-sanitizer/match"
 )
 
 func TestRegression(t *testing.T) {

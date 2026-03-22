@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/empijei/sanitize/dom"
+	"github.com/empijei/go-html-sanitizer/dom"
 	"github.com/empijei/tst"
 	"golang.org/x/net/html"
 )

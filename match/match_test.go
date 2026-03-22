@@ -3,7 +3,7 @@ package match_test
 import (
 	"testing"
 
-	"github.com/empijei/sanitize/match"
+	"github.com/empijei/go-html-sanitizer/match"
 )
 
 var (

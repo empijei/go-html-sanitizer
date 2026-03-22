@@ -1,4 +1,4 @@
-module github.com/empijei/sanitize
+module github.com/empijei/go-html-sanitizer
 
 go 1.26.1
 
