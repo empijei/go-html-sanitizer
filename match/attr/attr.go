@@ -82,5 +82,8 @@ var (
 	).Matcher()
 
 	// Open matches an optional "open" string (common for boolean attributes like "open").
-	Open = match.Opt(match.Exact("open")).Matcher()
+	Open          = match.Opt(match.Exact("open")).Matcher()
+	ListType      = match.WordsToLower("circle", "disc", "square", "a", "A", "i", "I", "1").Matcher()
+	ImgAlign      = match.WordsToLower("left", "right", "top", "texttop", "middle", "absmiddle", "baseline", "bottom", "absbottom").Matcher()
+	HeightOrWidth = match.CombineEager(match.Integer(), match.Exact("%")).Matcher()
 )

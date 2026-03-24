@@ -88,4 +88,14 @@ func TestMatch(t *testing.T) {
 		check(t, true, attr.Open, "")
 		check(t, false, attr.Open, "closed")
 	})
+
+	/*
+		ListType      = match.WordsToLower("circle", "disc", "square", "a", "A", "i", "I", "1").Matcher()
+		ImgAlign      = match.WordsToLower("left", "right", "top", "texttop", "middle", "absmiddle", "baseline", "bottom", "absbottom").Matcher()
+	*/
+	t.Run("height or width", func(t *testing.T) {
+		check(t, true, attr.HeightOrWidth, "100")
+		check(t, true, attr.HeightOrWidth, "100%")
+		check(t, false, attr.HeightOrWidth, "%")
+	})
 }
