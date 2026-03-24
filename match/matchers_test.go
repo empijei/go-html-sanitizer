@@ -20,17 +20,17 @@ var (
 	)
 )
 
-func check(t *testing.T, m match.Matcher, in string, want bool) {
+func check(t *testing.T, m match.Step, in string, want bool) {
 	t.Helper()
-	if got := match.Check(m, in); got != want {
+	if got := m.Matcher()(in); got != want {
 		t.Errorf("match.Check(%q) want %v got %v", in, want, got)
 	}
 }
 
 func TestNumberWithUnit(t *testing.T) {
 	units := match.Words("cm", "px", "mm")
-	numberWithUnitAndOptSpace := match.Combine(match.Integer, match.OptSpace, units)
-	numberWithUnit := match.Combine(match.Integer, units)
+	numberWithUnitAndOptSpace := match.Combine(match.Integer(), match.OptSpace(), units)
+	numberWithUnit := match.Combine(match.Integer(), units)
 
 	t.Run("base", func(t *testing.T) {
 		check(t, numberWithUnit, "4cm", true)
@@ -61,12 +61,12 @@ func TestBasic(t *testing.T) {
 	t.Parallel()
 
 	t.Run("None", func(t *testing.T) {
-		check(t, match.None, "", true)
-		check(t, match.None, "some", false)
+		check(t, match.None(), "", true)
+		check(t, match.None(), "some", false)
 	})
 
 	t.Run("NaN", func(t *testing.T) {
-		check(t, match.Integer, "NaN", false)
+		check(t, match.Integer(), "NaN", false)
 	})
 
 	t.Run("NaN Range", func(t *testing.T) {
@@ -74,7 +74,7 @@ func TestBasic(t *testing.T) {
 	})
 
 	t.Run("Unanchored", func(t *testing.T) {
-		m := match.Combine(match.Integer, match.Any)
+		m := match.Combine(match.Integer(), match.Any())
 		check(t, m, "10 this should be ignored", true)
 	})
 
@@ -84,21 +84,21 @@ func TestBasic(t *testing.T) {
 	})
 
 	t.Run("Letters and Numbers", func(t *testing.T) {
-		check(t, match.LettersAndNumbers, "4aF8é", true)
+		check(t, match.LettersAndNumbers(), "4aF8é", true)
 	})
 
 	t.Run("Letters and Numbers with extra char", func(t *testing.T) {
-		check(t, match.LettersAndNumbers, "4aF8-é", false)
+		check(t, match.LettersAndNumbers(), "4aF8-é", false)
 	})
 
 	t.Run("Letters", func(t *testing.T) {
-		check(t, match.Letters, "FégtP", true)
-		check(t, match.Letters, "Fé1gtP", false)
+		check(t, match.Letters(), "FégtP", true)
+		check(t, match.Letters(), "Fé1gtP", false)
 	})
 
 	t.Run("Numbers", func(t *testing.T) {
-		check(t, match.Numbers, "156473890", true)
-		check(t, match.Numbers, "1e10", false)
+		check(t, match.Numbers(), "156473890", true)
+		check(t, match.Numbers(), "1e10", false)
 	})
 
 	t.Run("RGB", func(t *testing.T) {
@@ -124,7 +124,7 @@ func TestBasic(t *testing.T) {
 	})
 
 	t.Run("ASCII", func(t *testing.T) {
-		m := match.ASCII('a', 'b', 'c')
+		m := match.ASCIISetFrom('a', 'b', 'c').Step()
 		check(t, m, "abc", true)
 		check(t, m, "abcd", false)
 		check(t, m, "d", false)
@@ -145,6 +145,35 @@ func TestBasic(t *testing.T) {
 		check(t, m, "FOOBAR", true)
 		check(t, m, "FooBar", true)
 		check(t, m, "baz", false)
+	})
+
+	t.Run("Repeat", func(t *testing.T) {
+		s := match.Combine(
+			match.Numbers(),
+			match.Letters(),
+		)
+		s = match.Repeat(2, 4, s)
+		check(t, s, "1a1a1a", true)
+		check(t, s, "1ab32cd1a", true)
+		check(t, s, "1a1a1a1a", true)
+		check(t, s, "1a1a", true)
+		check(t, s, "1a", false)
+		check(t, s, "", false)
+		check(t, s, "1a1a1a1a1a", false)
+	})
+
+	t.Run("Float", func(t *testing.T) {
+		m := match.Float()
+		check(t, m, "+1+e-10", false)
+		check(t, m, "1.1.1e10", false)
+		check(t, m, "1.1e1.0", false)
+		check(t, m, "1e10", true)
+		check(t, m, "1.2", true)
+		check(t, m, "1", true)
+		check(t, m, "1.2e10", true)
+		check(t, m, "1.2e-10", true)
+		check(t, m, "+1.2E-10", true)
+		check(t, m, "+1e-10", true)
 	})
 }
 

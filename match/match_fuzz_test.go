@@ -8,33 +8,33 @@ import (
 )
 
 func TestRegression(t *testing.T) {
-	m := match.Combine(match.Integer,
-		match.OptSpace,
+	m := match.Combine(match.Integer(),
+		match.OptSpace(),
 		match.Words("asd", "fgh", "jkl"),
 		match.Or(match.Exact("word"),
-			match.Integer),
+			match.Integer()),
 		match.Exact("."),
-		match.LettersAndNumbers,
+		match.LettersAndNumbers(),
 	)
-	gotM := match.Check(m, "3jklword.045é")
+	gotM := m.Matcher()("3jklword.045é")
 	_ = gotM
 }
 
 func FuzzAll(f *testing.F) {
 	r := regexp.MustCompile(`^(-|\+)?\d+[[:space:]]*(asd|fgh|jkl)(word|(-|\+)?\d+)\.[\p{N}\p{L}]+$`)
-	m := match.Combine(match.Integer,
-		match.OptSpace,
+	m := match.Combine(match.Integer(),
+		match.OptSpace(),
 		match.Words("asd", "fgh", "jkl"),
 		match.Or(match.Exact("word"),
-			match.Integer),
+			match.Integer()),
 		match.Exact("."),
-		match.LettersAndNumbers,
+		match.LettersAndNumbers(),
 	)
 	f.Add(`+3  fgh-3.asd45`)
 	f.Add(`3jklword.045é`)
 	f.Fuzz(func(t *testing.T, a string) {
 		gotR := r.MatchString(a)
-		gotM := match.Check(m, a)
+		gotM := m.Matcher()(a)
 		if gotR != gotM {
 			t.Fatalf(`
 Found mismatch on input %q
@@ -47,17 +47,17 @@ matcher: %v
 }
 
 func BenchmarkMatch(b *testing.B) {
-	m := match.Combine(match.Integer,
-		match.OptSpace,
+	m := match.Combine(match.Integer(),
+		match.OptSpace(),
 		match.Words("asd", "fgh", "jkl"),
 		match.Or(match.Exact("word"),
-			match.Integer),
+			match.Integer()),
 		match.Exact("."),
-		match.LettersAndNumbers,
+		match.LettersAndNumbers(),
 	)
 	in := `3jklword.045é`
 	for b.Loop() {
-		match.Check(m, in)
+		m.Matcher()(in)
 	}
 }
 
@@ -70,17 +70,17 @@ func BenchmarkRegexp(b *testing.B) {
 }
 
 func BenchmarkMatchBad(b *testing.B) {
-	m := match.Combine(match.Integer,
-		match.OptSpace,
+	m := match.Combine(match.Integer(),
+		match.OptSpace(),
 		match.Words("asd", "fgh", "jkl"),
 		match.Or(match.Exact("word"),
-			match.Integer),
+			match.Integer()),
 		match.Exact("."),
-		match.LettersAndNumbers,
+		match.LettersAndNumbers(),
 	)
 	in := `3jkl_word.045é`
 	for b.Loop() {
-		match.Check(m, in)
+		m.Matcher()(in)
 	}
 }
 

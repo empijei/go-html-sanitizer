@@ -9,7 +9,9 @@ import (
 // OptSpace consumes whitespace, always matches.
 //
 //	/[[:space:]]*/
-func OptSpace(s string) (rem string, ok bool) {
+func OptSpace() Step { return optSpace }
+
+func optSpace(s string) (remainder string, ok bool) {
 	for {
 		size, r := peek(s)
 		if size == 0 || !unicode.IsSpace(r) {
@@ -26,7 +28,9 @@ func OptSpace(s string) (rem string, ok bool) {
 // variations.
 //
 //	/(-|+)?\d+/
-func Integer(s string) (rem string, ok bool) {
+func Integer() Step { return integer }
+
+func integer(s string) (remainder string, ok bool) {
 	adv, ok := readInt(s)
 	return s[adv:], ok
 }
@@ -51,7 +55,7 @@ func readInt(s string) (advance int, ok bool) {
 // edges included.
 //
 // Numbers that overflow are rejected.
-func IntegerBetween(low, high int64) Matcher {
+func IntegerBetween(low, high int64) Step {
 	return func(s string) (rem string, ok bool) {
 		adv, ok := readInt(s)
 		if !ok {
@@ -65,10 +69,53 @@ func IntegerBetween(low, high int64) Matcher {
 	}
 }
 
+func readFloat(s string) (float, rem string, ok bool) {
+	/*
+		float = sign { digit } [ "." { digit } ] [ ("e"|"E") [ sign ] { digit } ]
+		sign  = '+' | '-'
+		digit = '0' -> '9'
+	*/
+	sign := ASCIISetFrom('-', '+').StepBetween(0, 1)
+	digit := ASCIISetNumbers().Step()
+	dot := Exact(".")
+	exp := Words("e", "E")
+	m := Combine(sign, digit,
+		Opt(Combine(dot, digit)),
+		Opt(Combine(exp, sign, digit)),
+	)
+	rem, ok = m(s)
+	if !ok {
+		return "", s, false
+	}
+	float = s[:len(s)-len(rem)]
+	return float, rem, true
+}
+
+func Float() Step {
+	return func(s string) (remainder string, ok bool) {
+		_, rem, ok := readFloat(s)
+		return rem, ok
+	}
+}
+
+func FloatBetween(min, max float64) Step {
+	return func(s string) (remainder string, ok bool) {
+		float, rem, ok := readFloat(s)
+		if !ok {
+			return rem, false
+		}
+		val, err := strconv.ParseFloat(float, 64)
+		if err != nil {
+			return rem, false
+		}
+		return rem, min <= val && val <= max
+	}
+}
+
 // Words matches a set of fixed words.
 //
 //	/(word1|word2|word3)/
-func Words(accept ...string) Matcher {
+func Words(accept ...string) Step {
 	var t trie
 	for _, w := range accept {
 		t.insert(w)
@@ -80,7 +127,7 @@ func Words(accept ...string) Matcher {
 }
 
 // WordsToLower matches a set of fixed words, lowercasing all parameters and inputs.
-func WordsToLower(accept ...string) Matcher {
+func WordsToLower(accept ...string) Step {
 	t := trie{toLower: true}
 	for _, w := range accept {
 		t.insert(w)
@@ -94,7 +141,7 @@ func WordsToLower(accept ...string) Matcher {
 // Exact matches exactly the given word.
 //
 //	/word/
-func Exact(accept string) Matcher {
+func Exact(accept string) Step {
 	return func(s string) (string, bool) {
 		if !strings.HasPrefix(s, accept) {
 			return s, false
@@ -106,14 +153,18 @@ func Exact(accept string) Matcher {
 // Any consume the rest of the input.
 //
 //	/.*/
-func Any(_ string) (rem string, ok bool) {
+func Any() Step { return stepAny }
+
+func stepAny(_ string) (remainder string, ok bool) {
 	return "", true
 }
 
 // None only matches the empty string.
 //
 //	//
-func None(s string) (rem string, ok bool) {
+func None() Step { return none }
+
+func none(s string) (remainder string, ok bool) {
 	return s, s == ""
 }
 
@@ -121,11 +172,14 @@ func None(s string) (rem string, ok bool) {
 // one of the provided matcher.
 //
 // Returns false IFF none matched.
-func RunesFunc(match ...func(r rune) bool) Matcher {
+func RunesFunc(match ...func(r rune) bool) Step {
 	return func(s string) (rem string, ok bool) {
 		var adv int
 		for {
 			size, r := peek(s[adv:])
+			if size == 0 {
+				break
+			}
 			var found bool
 			for _, m := range match {
 				if !m(r) {
@@ -143,45 +197,29 @@ func RunesFunc(match ...func(r rune) bool) Matcher {
 	}
 }
 
-var (
-	// Letters returns whether the sequence is at least one Letter.
-	//
-	// 	/[\p{L}]+/
-	Letters = RunesFunc(unicode.IsLetter)
-	// Numbers returns whether the sequence is at least one number.
-	//
-	// 	/[\p{N}]+/
-	Numbers = RunesFunc(unicode.IsNumber)
-	// LettersAndNumbers returns whether the sequence is at least one number.
-	// 	/[\p{N}\p{L}]+/
-	LettersAndNumbers = RunesFunc(unicode.IsLetter, unicode.IsNumber)
-)
+// Letters returns whether the sequence is at least one Letter.
+//
+//	/[\p{L}]+/
+func Letters() Step { return letters }
 
-type asciiSet [256]bool
+var letters = RunesFunc(unicode.IsLetter)
 
-func (a *asciiSet) insert(b byte)   { (*a)[b] = true }
-func (a *asciiSet) has(b byte) bool { return (*a)[b] }
+// Numbers returns whether the sequence is at least one number.
+//
+//	/[\p{N}]+/
+func Numbers() Step { return numbers }
 
-// ASCII constructs a matcher that matches the given ascii chars.
-func ASCII(chars ...byte) Matcher {
-	var as asciiSet
-	for _, c := range chars {
-		as.insert(c)
-	}
-	return func(s string) (rem string, ok bool) {
-		for {
-			size, r := peek(s)
-			if size != 1 || !as.has(byte(r)) { //nolint: gosec // Checked.
-				break
-			}
-			s = s[size:]
-		}
-		return s, true
-	}
-}
+var numbers = RunesFunc(unicode.IsNumber)
+
+// LettersAndNumbers returns whether the sequence is at least one number.
+//
+//	/[\p{N}\p{L}]+/
+func LettersAndNumbers() Step { return lettersAndNumbers }
+
+var lettersAndNumbers = RunesFunc(unicode.IsLetter, unicode.IsNumber)
 
 // Runes constructs a matcher that matches the given runes.
-func Runes(chars ...rune) Matcher {
+func Runes(chars ...rune) Step {
 	rs := map[rune]struct{}{}
 	for _, r := range chars {
 		rs[r] = struct{}{}
@@ -189,5 +227,18 @@ func Runes(chars ...rune) Matcher {
 	return RunesFunc(func(r rune) bool {
 		_, ok := rs[r]
 		return ok
+	})
+}
+
+// RunesNot constructs a matcher that matches all but the given runes.
+func RunesNot(chars ...rune) Step {
+	// TODO test
+	rs := map[rune]struct{}{}
+	for _, r := range chars {
+		rs[r] = struct{}{}
+	}
+	return RunesFunc(func(r rune) bool {
+		_, ok := rs[r]
+		return !ok
 	})
 }
