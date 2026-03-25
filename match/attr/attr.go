@@ -82,8 +82,12 @@ var (
 	).Matcher()
 
 	// Open matches an optional "open" string (common for boolean attributes like "open").
-	Open          = match.Opt(match.Exact("open")).Matcher()
-	ListType      = match.WordsToLower("circle", "disc", "square", "a", "A", "i", "I", "1").Matcher()
-	ImgAlign      = match.WordsToLower("left", "right", "top", "texttop", "middle", "absmiddle", "baseline", "bottom", "absbottom").Matcher()
-	HeightOrWidth = match.CombineEager(match.Integer(), match.Exact("%")).Matcher()
+	Open              = match.WordsToLower("", "open").Matcher()
+	ListType          = match.WordsToLower("circle", "disc", "square", "a", "A", "i", "I", "1").Matcher()
+	ImgAlign          = match.WordsToLower("left", "right", "top", "texttop", "middle", "absmiddle", "baseline", "bottom", "absbottom").Matcher()
+	NumberOrPercent   = match.CombineEager(match.Integer(), match.Exact("%")).Matcher()
+	CellAlign         = match.WordsToLower("center", "justify", "left", "right", "char").Matcher()
+	CellVerticalAlign = match.WordsToLower("baseline", "bottom", "middle", "top").Matcher()
+	THScope           = match.WordsToLower("row", "col", "rowgroup", "colgroup").Matcher()
+	NoWrap            = match.WordsToLower("", "nowrap").Matcher()
 )

@@ -94,8 +94,8 @@ func TestMatch(t *testing.T) {
 		ImgAlign      = match.WordsToLower("left", "right", "top", "texttop", "middle", "absmiddle", "baseline", "bottom", "absbottom").Matcher()
 	*/
 	t.Run("height or width", func(t *testing.T) {
-		check(t, true, attr.HeightOrWidth, "100")
-		check(t, true, attr.HeightOrWidth, "100%")
-		check(t, false, attr.HeightOrWidth, "%")
+		check(t, true, attr.NumberOrPercent, "100")
+		check(t, true, attr.NumberOrPercent, "100%")
+		check(t, false, attr.NumberOrPercent, "%")
 	})
 }

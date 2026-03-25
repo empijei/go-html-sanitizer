@@ -145,6 +145,10 @@ func TestBasic(t *testing.T) {
 		check(t, m, "FOOBAR", true)
 		check(t, m, "FooBar", true)
 		check(t, m, "baz", false)
+		mt := match.WordsToLower("", "alt")
+		check(t, mt, "", true)
+		check(t, mt, "alt", true)
+		check(t, mt, "nope", false)
 	})
 
 	t.Run("Repeat", func(t *testing.T) {
