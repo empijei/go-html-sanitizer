@@ -100,19 +100,19 @@ func CombineOptSpace(seq ...Step) Step {
 	return Combine(ns...)
 }
 
-// Repeat returns a step that only matches if s matches at least min times (included)
-// and at most max times (included).
-func Repeat(min, max uint, s Step) Step {
+// Repeat returns a step that only matches if s matches at least from times (included)
+// and at most to times (included).
+func Repeat(from, to uint, s Step) Step {
 	return func(in string) (remainder string, ok bool) {
 		remainder = in
-		for i := range max {
+		for i := range to {
 			var rem string
 			rem, ok = s(remainder)
 			if ok {
 				remainder = rem
 				continue
 			}
-			return remainder, i >= min
+			return remainder, i >= from
 		}
 		return remainder, true
 	}

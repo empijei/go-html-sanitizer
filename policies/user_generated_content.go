@@ -8,11 +8,6 @@ import (
 	"github.com/empijei/go-html-sanitizer/sanitize"
 )
 
-type URLPolicy struct {
-	AllowRelative bool
-	AllowSchemes  map[string]struct{}
-}
-
 var (
 	double  = match.Numbers().Matcher()
 	integer = match.Integer().Matcher()
@@ -21,16 +16,16 @@ var (
 // UserGeneratedContent returns a policy that can be used for user generated content.
 //
 // It allows basic phrasing and text styling elements, lists, links, images and tables.
-func UserGeneratedContent(up *URLPolicy) *sanitize.Policy {
+func UserGeneratedContent(up *URLs) *sanitize.Policy {
 	p := &sanitize.Policy{
 		Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
-			"a":       {"href": up.Valid},
+			"a":       {"href": nil},
 			"abbr":    nil,
 			"acronym": nil,
 			"area": {
 				"alt":    attr.FreeText,
 				"coords": attr.Coords,
-				"href":   up.Valid,
+				"href":   nil,
 				"rel":    attr.Rel,
 				"shape":  attr.Shapes,
 			},
@@ -39,12 +34,12 @@ func UserGeneratedContent(up *URLPolicy) *sanitize.Policy {
 			"b":          nil,
 			"bdi":        {"dir": attr.Dir},
 			"bdo":        {"dir": attr.Dir},
-			"blockquote": {"cite": up.Valid},
+			"blockquote": {"cite": nil},
 			"br":         nil,
 			"cite":       nil,
 			"code":       nil,
 			"del": {
-				"cite":     up.Valid,
+				"cite":     nil,
 				"datetime": attr.TimeISO8601,
 			},
 			"details":    {"open": attr.Open},
@@ -66,12 +61,12 @@ func UserGeneratedContent(up *URLPolicy) *sanitize.Policy {
 				"align":  attr.ImgAlign,
 				"usemap": attr.UseMap,
 				"alt":    attr.FreeText,
-				"src":    up.Valid,
+				"src":    nil,
 				"height": attr.NumberOrPercent,
 				"width":  attr.NumberOrPercent,
 			},
 			"ins": {
-				"cite":     up.Valid,
+				"cite":     nil,
 				"datetime": attr.TimeISO8601,
 			},
 			"map":  {"name": attr.Name},
@@ -90,7 +85,7 @@ func UserGeneratedContent(up *URLPolicy) *sanitize.Policy {
 				"value": double,
 				"max":   double,
 			},
-			"q":       {"cite": up.Valid},
+			"q":       {"cite": nil},
 			"rp":      nil,
 			"rt":      nil,
 			"ruby":    nil,
@@ -115,6 +110,7 @@ func UserGeneratedContent(up *URLPolicy) *sanitize.Policy {
 		Remove:      map[sanitize.TagName]string{"script": "", "style": ""},
 	}
 
+	defer up.Apply(p)
 	maps.Insert(p.Allow, maps.All(AllowLists))
 	maps.Insert(p.Allow, maps.All(AllowTables))
 	maps.Insert(p.AllowGlobal, maps.All(AllowGlobalStandard))

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"maps"
+	"slices"
 	"strings"
 
 	"github.com/empijei/go-html-sanitizer/dom"
@@ -55,7 +56,7 @@ type Policy struct {
 	// Modify is executed before filters and DOES NOT imply Allow.
 	//
 	// Modifers MUST NOT be nil.
-	ModifyAttributes map[TagName]AttributeModifier
+	ModifyAttributes map[TagName][]AttributeModifier
 	// Remove allows to optionally specify tags that should be completely removed,
 	// including all their children.
 	//
@@ -119,9 +120,11 @@ func (p *Policy) sanitizeDOM(fr *dom.Fragment) error {
 			remove = append(remove, n)
 		}
 
-		mod, ok := p.ModifyAttributes[tagName]
+		mods, ok := p.ModifyAttributes[tagName]
 		if ok {
-			mod(tagName, &n.Attr)
+			for _, mod := range mods {
+				mod(tagName, &n.Attr)
+			}
 		}
 
 		dom.FilterAttributes(n, func(_ *html.Node, attr html.Attribute) (keep bool) {
@@ -184,7 +187,7 @@ func (p *Policy) Relax(other *Policy) {
 
 	orAttrMaps(p.AllowGlobal, other.AllowGlobal)
 
-	p.MergeModify(other)
+	p.MergeModify(other.ModifyAttributes)
 
 	for tag := range p.Remove {
 		_, ok := other.Remove[tag]
@@ -235,7 +238,7 @@ func (p *Policy) Restrict(other *Policy) {
 
 	andAttrMaps(p.AllowGlobal, other.AllowGlobal)
 
-	p.MergeModify(other)
+	p.MergeModify(other.ModifyAttributes)
 
 	for tag, repl := range other.Remove {
 		_, ok := p.Remove[tag]
@@ -262,16 +265,16 @@ func andAttrMaps(this, other map[AttributeName]AttributeFilter) {
 }
 
 // MergeModify merges into the policy all the modifiers from the other policy.
-func (p *Policy) MergeModify(other *Policy) {
-	for tag, otherModif := range other.ModifyAttributes {
+func (p *Policy) MergeModify(other map[TagName][]AttributeModifier) {
+	if other != nil && p.ModifyAttributes == nil {
+		p.ModifyAttributes = map[TagName][]AttributeModifier{}
+	}
+	for tag, otherModif := range other {
 		pModif, ok := p.ModifyAttributes[tag]
 		if !ok {
-			p.ModifyAttributes[tag] = otherModif
+			p.ModifyAttributes[tag] = slices.Clone(otherModif)
 			continue
 		}
-		p.ModifyAttributes[tag] = func(tagName string, attrs *[]html.Attribute) {
-			pModif(tagName, attrs)
-			otherModif(tagName, attrs)
-		}
+		p.ModifyAttributes[tag] = append(pModif, otherModif...)
 	}
 }

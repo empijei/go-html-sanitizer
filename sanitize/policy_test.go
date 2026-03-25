@@ -66,10 +66,10 @@ func TestPolicy_Sanitize(t *testing.T) {
 			Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
 				"a": {"href": nil, "rel": nil},
 			},
-			ModifyAttributes: map[sanitize.TagName]sanitize.AttributeModifier{
-				"a": func(_ string, attrs *[]html.Attribute) {
+			ModifyAttributes: map[sanitize.TagName][]sanitize.AttributeModifier{
+				"a": {func(_ string, attrs *[]html.Attribute) {
 					*attrs = append(*attrs, html.Attribute{Key: "rel", Val: "nofollow"})
-				},
+				}},
 			},
 		}
 		got := p.SanitizeString(`prefix <a href="/foo">link text</a> suffix`)
@@ -159,20 +159,20 @@ func TestPolicy_Relax(t *testing.T) {
 			Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
 				"b": {"class": nil, "id": nil},
 			},
-			ModifyAttributes: map[sanitize.TagName]sanitize.AttributeModifier{
-				"b": func(_ string, attrs *[]html.Attribute) {
+			ModifyAttributes: map[sanitize.TagName][]sanitize.AttributeModifier{
+				"b": {func(_ string, attrs *[]html.Attribute) {
 					*attrs = append(*attrs, html.Attribute{Key: "class", Val: "bold"})
-				},
+				}},
 			},
 		}
 		p2 := &sanitize.Policy{
 			Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
 				"b": {"class": nil, "id": nil},
 			},
-			ModifyAttributes: map[sanitize.TagName]sanitize.AttributeModifier{
-				"b": func(_ string, attrs *[]html.Attribute) {
+			ModifyAttributes: map[sanitize.TagName][]sanitize.AttributeModifier{
+				"b": {func(_ string, attrs *[]html.Attribute) {
 					*attrs = append(*attrs, html.Attribute{Key: "id", Val: "b1"})
-				},
+				}},
 			},
 		}
 		p1.Relax(p2)

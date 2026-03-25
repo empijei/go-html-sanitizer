@@ -91,6 +91,7 @@ func readFloat(s string) (float, rem string, ok bool) {
 	return float, rem, true
 }
 
+// Float matches a valid floating point number.
 func Float() Step {
 	return func(s string) (remainder string, ok bool) {
 		_, rem, ok := readFloat(s)
@@ -98,7 +99,8 @@ func Float() Step {
 	}
 }
 
-func FloatBetween(min, max float64) Step {
+// FloatBetween matches a valid Floating point number within the given values (included).
+func FloatBetween(from, to float64) Step {
 	return func(s string) (remainder string, ok bool) {
 		float, rem, ok := readFloat(s)
 		if !ok {
@@ -108,7 +110,7 @@ func FloatBetween(min, max float64) Step {
 		if err != nil {
 			return rem, false
 		}
-		return rem, min <= val && val <= max
+		return rem, from <= val && val <= to
 	}
 }
 

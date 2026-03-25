@@ -89,13 +89,49 @@ func TestMatch(t *testing.T) {
 		check(t, false, attr.Open, "closed")
 	})
 
-	/*
-		ListType      = match.WordsToLower("circle", "disc", "square", "a", "A", "i", "I", "1").Matcher()
-		ImgAlign      = match.WordsToLower("left", "right", "top", "texttop", "middle", "absmiddle", "baseline", "bottom", "absbottom").Matcher()
-	*/
-	t.Run("height or width", func(t *testing.T) {
+	t.Run("number or percent", func(t *testing.T) {
 		check(t, true, attr.NumberOrPercent, "100")
 		check(t, true, attr.NumberOrPercent, "100%")
 		check(t, false, attr.NumberOrPercent, "%")
+	})
+
+	t.Run("list type", func(t *testing.T) {
+		check(t, true, attr.ListType, "circle")
+		check(t, true, attr.ListType, "disc")
+		check(t, true, attr.ListType, "A")
+		check(t, true, attr.ListType, "1")
+		check(t, false, attr.ListType, "foo")
+	})
+
+	t.Run("img align", func(t *testing.T) {
+		check(t, true, attr.ImgAlign, "left")
+		check(t, true, attr.ImgAlign, "middle")
+		check(t, true, attr.ImgAlign, "absbottom")
+		check(t, false, attr.ImgAlign, "foo")
+	})
+
+	t.Run("cell align", func(t *testing.T) {
+		check(t, true, attr.CellAlign, "center")
+		check(t, true, attr.CellAlign, "justify")
+		check(t, true, attr.CellAlign, "char")
+		check(t, false, attr.CellAlign, "foo")
+	})
+
+	t.Run("cell vertical align", func(t *testing.T) {
+		check(t, true, attr.CellVerticalAlign, "baseline")
+		check(t, true, attr.CellVerticalAlign, "top")
+		check(t, false, attr.CellVerticalAlign, "foo")
+	})
+
+	t.Run("th scope", func(t *testing.T) {
+		check(t, true, attr.THScope, "row")
+		check(t, true, attr.THScope, "colgroup")
+		check(t, false, attr.THScope, "foo")
+	})
+
+	t.Run("nowrap", func(t *testing.T) {
+		check(t, true, attr.NoWrap, "nowrap")
+		check(t, true, attr.NoWrap, "")
+		check(t, false, attr.NoWrap, "wrap")
 	})
 }

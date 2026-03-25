@@ -42,7 +42,7 @@ var (
 		stepRelTok,
 		match.Opt(match.Repeat(1, uint(len(relToks)),
 			match.Combine(
-				match.ASCIIWhiteSpace().StepBetween(1, math.MaxInt64),
+				match.ASCIISetWhiteSpace().StepBetween(1, math.MaxInt64),
 				stepRelTok,
 			)))).Matcher()
 	// Shapes matches the "shape" attribute values: "default", "circle", "rect", "poly".
@@ -82,12 +82,19 @@ var (
 	).Matcher()
 
 	// Open matches an optional "open" string (common for boolean attributes like "open").
-	Open              = match.WordsToLower("", "open").Matcher()
-	ListType          = match.WordsToLower("circle", "disc", "square", "a", "A", "i", "I", "1").Matcher()
-	ImgAlign          = match.WordsToLower("left", "right", "top", "texttop", "middle", "absmiddle", "baseline", "bottom", "absbottom").Matcher()
-	NumberOrPercent   = match.CombineEager(match.Integer(), match.Exact("%")).Matcher()
-	CellAlign         = match.WordsToLower("center", "justify", "left", "right", "char").Matcher()
+	Open = match.WordsToLower("", "open").Matcher()
+	// ListType matches list style types (e.g., "circle", "disc", "square", "a", "A", "i", "I", "1").
+	ListType = match.WordsToLower("circle", "disc", "square", "a", "A", "i", "I", "1").Matcher()
+	// ImgAlign matches image alignment values (e.g., "left", "right", "top").
+	ImgAlign = match.WordsToLower("left", "right", "top", "texttop", "middle", "absmiddle", "baseline", "bottom", "absbottom").Matcher()
+	// NumberOrPercent matches numeric values or percentages (e.g., "10", "100%").
+	NumberOrPercent = match.CombineEager(match.Integer(), match.Exact("%")).Matcher()
+	// CellAlign matches table cell horizontal alignment values (e.g., "center", "justify", "left", "right", "char").
+	CellAlign = match.WordsToLower("center", "justify", "left", "right", "char").Matcher()
+	// CellVerticalAlign matches table cell vertical alignment values (e.g., "baseline", "bottom", "middle", "top").
 	CellVerticalAlign = match.WordsToLower("baseline", "bottom", "middle", "top").Matcher()
-	THScope           = match.WordsToLower("row", "col", "rowgroup", "colgroup").Matcher()
-	NoWrap            = match.WordsToLower("", "nowrap").Matcher()
+	// THScope matches table header scope values (e.g., "row", "col", "rowgroup", "colgroup").
+	THScope = match.WordsToLower("row", "col", "rowgroup", "colgroup").Matcher()
+	// NoWrap matches the "nowrap" attribute value or an empty string.
+	NoWrap = match.WordsToLower("", "nowrap").Matcher()
 )

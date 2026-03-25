@@ -11,11 +11,7 @@ import (
 
 func TestUGC(t *testing.T) {
 	tst.Go(t)
-	up := policies.URLPolicy{
-		AllowRelative: true,
-		AllowSchemes:  map[string]struct{}{"https": {}, "http": {}},
-	}
-	ugcp := policies.UserGeneratedContent(&up)
+	ugcp := policies.UserGeneratedContent(policies.NewURLs())
 	in := `<div id="main-content" onclick="stealSessionCookies()">
   <b>This is safe bold text</b><br>
   
@@ -24,6 +20,14 @@ func TestUGC(t *testing.T) {
   </script>
 
   <img src="https://example.com/valid-image.jpg" onload="alert('XSS 1')" alt="A standard 10 cm x 10 cm image">
+
+  <img src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' 
+          viewBox='0 0 96 96'><rect id='USED' width='50%' height='50%' 
+          stroke='red'/><use href='%23USED' x='24' y='24'/></svg>"/>
+
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA
+          AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
+          9TXL0Y4OHwAAAABJRU5ErkJggg==" alt="Red dot">
   
   <img src="javascript:alert('XSS 2')" alt="Malicious source">
 
@@ -54,6 +58,10 @@ func TestUGC(t *testing.T) {
 	want := `<div id="main-content">
 <b>This is safe bold text</b><br/>
 <img src="https://example.com/valid-image.jpg" alt="A standard 10 cm x 10 cm image"/>
+<img/>
+<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA
+AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
+9TXL0Y4OHwAAAABJRU5ErkJggg==" alt="Red dot"/>
 <img alt="Malicious source"/>
 <table>
 <tbody><tr>
