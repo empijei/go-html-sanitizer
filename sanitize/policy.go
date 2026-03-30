@@ -32,6 +32,10 @@ type (
 	Matcher = func(s string) (ok bool)
 )
 
+type URIs interface {
+	Validator(tag TagName, attr AttributeName) (validator AttributeFilter, applies bool)
+}
+
 // Policy is a policy to sanitize HTML.
 //
 // TextNodes and ElementNodes are the only type of nodes that are kept.
@@ -51,9 +55,17 @@ type Policy struct {
 	//
 	// A nil AttributeFilter is treated like an allow-all.
 	AllowGlobal map[AttributeName]AttributeFilter
+	// URIs is the policy applied to URIs.
+	//
+	// For an attribute that contains a URI value to be allowed, it needs to both
+	// be allowed by Allow and pass the additional URI check.
+	//
+	// A nil policy will block all attributes that might contain a URI.
+	URIs URIs
 	// ModifyAttributes allows to modify attributes for nodes.
 	//
-	// Modify is executed before filters and DOES NOT imply Allow.
+	// Modify is executed after filters, so attributes that are added or modified
+	// by these functions are implicitly trusted.
 	//
 	// Modifers MUST NOT be nil.
 	ModifyAttributes map[TagName][]AttributeModifier
@@ -120,18 +132,21 @@ func (p *Policy) sanitizeDOM(fr *dom.Fragment) error {
 			remove = append(remove, n)
 		}
 
-		mods, ok := p.ModifyAttributes[tagName]
-		if ok {
-			for _, mod := range mods {
-				mod(tagName, &n.Attr)
-			}
-		}
-
 		dom.FilterAttributes(n, func(_ *html.Node, attr html.Attribute) (keep bool) {
 			key := attr.Key
 			if attr.Namespace != "" {
 				key = attr.Namespace + ":" + attr.Key
 			}
+
+			uris := p.URIs
+			if uris == nil {
+				uris = defaultURIPolicy
+			}
+
+			if v, applies := p.URIs.Validator(tagName, key); applies && !v(attr.Val) {
+				return false
+			}
+
 			flt, ok := allowAttrs[key]
 			if ok && (flt == nil || flt(attr.Val)) {
 				return true
@@ -139,6 +154,14 @@ func (p *Policy) sanitizeDOM(fr *dom.Fragment) error {
 			gflt, ok := p.AllowGlobal[key]
 			return ok && gflt(attr.Val)
 		})
+
+		mods, ok := p.ModifyAttributes[tagName]
+		if ok {
+			for _, mod := range mods {
+				mod(tagName, &n.Attr)
+			}
+		}
+
 	}
 	for _, r := range remove {
 		if err := dom.RemoveNode(r); err != nil {

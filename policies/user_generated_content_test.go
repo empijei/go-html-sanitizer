@@ -6,12 +6,13 @@ import (
 	"testing"
 
 	"github.com/empijei/go-html-sanitizer/policies"
+	"github.com/empijei/go-html-sanitizer/sanitize"
 	"github.com/empijei/tst"
 )
 
 func TestUGC(t *testing.T) {
 	tst.Go(t)
-	ugcp := policies.UserGeneratedContent(policies.NewURLs())
+	ugcp := policies.UserGeneratedContent()
 	in := `<div id="main-content" onclick="stealSessionCookies()">
   <b>This is safe bold text</b><br>
   
@@ -57,12 +58,12 @@ func TestUGC(t *testing.T) {
 	got := ugcp.SanitizeString(in)
 	want := `<div id="main-content">
 <b>This is safe bold text</b><br/>
-<img src="https://example.com/valid-image.jpg" alt="A standard 10 cm x 10 cm image"/>
-<img/>
+<img src="https://example.com/valid-image.jpg" alt="A standard 10 cm x 10 cm image" crossorigin="anonymous"/>
+<img crossorigin="anonymous"/>
 <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA
 AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
-9TXL0Y4OHwAAAABJRU5ErkJggg==" alt="Red dot"/>
-<img alt="Malicious source"/>
+9TXL0Y4OHwAAAABJRU5ErkJggg==" alt="Red dot" crossorigin="anonymous"/>
+<img alt="Malicious source" crossorigin="anonymous"/>
 <table>
 <tbody><tr>
 <td>Standard cell</td>
@@ -95,4 +96,34 @@ func stripWhitespace(input string) string {
 	}
 
 	return result.String()
+}
+
+func TestAttributeModifiers(t *testing.T) {
+	tst.Go(t)
+	p := &sanitize.Policy{
+		Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
+			"iframe": {"src": nil, "sandbox": nil},
+			"a":      {"href": nil, "rel": nil, "target": nil},
+		},
+		URIs: policies.NewURIs(),
+	}
+
+	policies.AddIFrameSandbox(p, policies.SandboxAllowForms)
+	policies.AddAttributeRel(p)
+	policies.AddAttributeTarget(p)
+
+	in := `<a href="https://trusted.dev/1" rel="custom nofollow">text</a>
+<a href="https://trusted.dev/2" target="bad">text</a>
+<iframe src="https://alsotrusted.org/3" sandbox="allow-downloads"></iframe>
+<iframe src="https://alsotrusted.org/4"></iframe>
+<iframe src="https://alsotrusted.org/5" sandbox="allow-forms"></iframe>
+`
+	got := p.SanitizeString(in)
+	want := `<a href="https://trusted.dev/1" rel="custom nofollow noreferrer ugc" target="_blank">text</a>
+<a href="https://trusted.dev/2" target="_blank" rel="noreferrer nofollow ugc">text</a>
+<iframe src="https://alsotrusted.org/3" sandbox="allow-forms"></iframe>
+<iframe src="https://alsotrusted.org/4" sandbox="allow-forms"></iframe>
+<iframe src="https://alsotrusted.org/5" sandbox="allow-forms"></iframe>
+`
+	tst.Is(want, stripWhitespace(got), t)
 }

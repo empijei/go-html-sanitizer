@@ -16,7 +16,10 @@ var (
 // UserGeneratedContent returns a policy that can be used for user generated content.
 //
 // It allows basic phrasing and text styling elements, lists, links, images and tables.
-func UserGeneratedContent(up *URLs) *sanitize.Policy {
+//
+// It sets a default URI policy, and applies modifiers to add extra privacy and security
+// attributes to links.
+func UserGeneratedContent() *sanitize.Policy {
 	p := &sanitize.Policy{
 		Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
 			"a":       {"href": nil},
@@ -57,14 +60,6 @@ func UserGeneratedContent(up *URLs) *sanitize.Policy {
 			"hgroup":     nil,
 			"hr":         nil,
 			"i":          nil,
-			"img": {
-				"align":  attr.ImgAlign,
-				"usemap": attr.UseMap,
-				"alt":    attr.FreeText,
-				"src":    nil,
-				"height": attr.NumberOrPercent,
-				"width":  attr.NumberOrPercent,
-			},
 			"ins": {
 				"cite":     nil,
 				"datetime": attr.TimeISO8601,
@@ -105,20 +100,21 @@ func UserGeneratedContent(up *URLs) *sanitize.Policy {
 			"var":     nil,
 			"wbr":     nil,
 		},
-		// TODO tables
-		AllowGlobal: map[sanitize.AttributeName]sanitize.AttributeFilter{},
-		Remove:      map[sanitize.TagName]string{"script": "", "style": ""},
+		URIs:             NewURIs(),
+		ModifyAttributes: map[sanitize.TagName][]sanitize.AttributeModifier{},
+		AllowGlobal:      map[sanitize.AttributeName]sanitize.AttributeFilter{},
+		Remove:           map[sanitize.TagName]string{"script": "", "style": ""},
 	}
 
-	defer up.Apply(p)
 	maps.Insert(p.Allow, maps.All(AllowLists))
+	maps.Insert(p.Allow, maps.All(AllowImages))
 	maps.Insert(p.Allow, maps.All(AllowTables))
 	maps.Insert(p.AllowGlobal, maps.All(AllowGlobalStandard))
 
-	// TODO figure out a way to make sure that once we merge common urls it doesn't
-	// accidentally get relaxed later on.
+	AddAttributeCrossOrigin(p)
+	AddAttributeRel(p)
+	AddAttributeTarget(p)
 
-	// TODO src rewriters
 	return p
 }
 
@@ -133,7 +129,19 @@ var (
 		"dd": nil,
 	}
 
-	// AllowLists is a map to insert into a policy Allow to enable tables.
+	// AllowImages is a map to insert into a policy Allow to enable images.
+	AllowImages = map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
+		"img": {
+			"align":  attr.ImgAlign,
+			"usemap": attr.UseMap,
+			"alt":    attr.FreeText,
+			"src":    nil,
+			"height": attr.NumberOrPercent,
+			"width":  attr.NumberOrPercent,
+		},
+	}
+
+	// AllowTables is a map to insert into a policy Allow to enable tables.
 	AllowTables = map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
 		"caption": nil,
 		"col": {
