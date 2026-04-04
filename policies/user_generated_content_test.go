@@ -2,6 +2,7 @@ package policies_test
 
 import (
 	"bufio"
+	"io"
 	"strings"
 	"testing"
 
@@ -10,10 +11,7 @@ import (
 	"github.com/empijei/tst"
 )
 
-func TestUGC(t *testing.T) {
-	tst.Go(t)
-	ugcp := policies.UserGeneratedContent()
-	in := `<div id="main-content" onclick="stealSessionCookies()">
+var inMisc = `<div id="main-content" onclick="stealSessionCookies()">
   <b>This is safe bold text</b><br>
   
   <script type="text/javascript">
@@ -55,7 +53,11 @@ func TestUGC(t *testing.T) {
     Text inside an unknown, unallowed tag.
   </custom-element>
 </div>`
-	got := ugcp.SanitizeString(in)
+
+func TestUGC(t *testing.T) {
+	tst.Go(t)
+	ugcp := policies.UserGeneratedContent()
+	got := ugcp.SanitizeString(inMisc)
 	want := `<div id="main-content">
 <b>This is safe bold text</b><br/>
 <img src="https://example.com/valid-image.jpg" alt="A standard 10 cm x 10 cm image" crossorigin="anonymous"/>
@@ -79,6 +81,17 @@ Text inside an unknown, unallowed tag.
 </div>
 `
 	tst.Is(want, stripWhitespace(got), t)
+}
+
+func BenchmarkUGC_Sanitize(b *testing.B) {
+	ugcp := policies.UserGeneratedContent()
+	in := strings.NewReader(inMisc)
+	b.ResetTimer()
+	for b.Loop() {
+		got := ugcp.Sanitize(io.Discard, in)
+		_ = got
+		in.Reset(inMisc)
+	}
 }
 
 func stripWhitespace(input string) string {

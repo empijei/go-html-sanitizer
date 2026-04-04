@@ -1,3 +1,4 @@
+// Package sanitize implements a DOM-based HTML sanitizer.
 package sanitize
 
 import (
@@ -32,6 +33,8 @@ type (
 	Matcher = func(s string) (ok bool)
 )
 
+// URIs is a validator that checks whether the given tag/attribute combination is supposed
+// to be a URI and, if so, returns the appropriate filter for it.
 type URIs interface {
 	Validator(tag TagName, attr AttributeName) (validator AttributeFilter, applies bool)
 }

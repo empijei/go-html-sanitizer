@@ -1,3 +1,4 @@
+// Package policies contains pre-built policies, ready to use to safely sanitize user input.
 package policies
 
 import (

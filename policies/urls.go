@@ -10,12 +10,14 @@ import (
 	"github.com/empijei/go-html-sanitizer/sanitize"
 )
 
-// TODO src rewriters
+// URIs is a URI policy that allows basic schemes and makes sure the URIs are valid.
 type URIs struct {
 	AllowSchemes  map[string]func(u *url.URL) (valid bool)
 	BlockRelative bool
+	// TODO src rewriters
 }
 
+// NewURIs returns a new URI policy.
 func NewURIs() *URIs {
 	return &URIs{
 		AllowSchemes: map[string]func(u *url.URL) (valid bool){
@@ -26,6 +28,7 @@ func NewURIs() *URIs {
 	}
 }
 
+// Validator implements [sanitize.URIs].
 func (u *URIs) Validator(tag sanitize.TagName, attr sanitize.AttributeName) (validator sanitize.AttributeFilter, applies bool) {
 	v, ok := uriTypes[tag][attr]
 	if !ok {
@@ -38,7 +41,7 @@ func (u *URIs) Validator(tag sanitize.TagName, attr sanitize.AttributeName) (val
 		return u.validSet, true
 	}
 	// Should not happen
-	return func(attrValue string) (keep bool) { return false }, true
+	return func(string) bool { return false }, true
 }
 
 func (u *URIs) valid(rawurl string) bool {

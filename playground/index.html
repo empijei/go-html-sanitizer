@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+
+<head>
+  <script type="module">
+    import { html, css, LitElement } from 'https://esm.run/lit';
+    import { unsafeHTML } from 'https://esm.run/lit/directives/unsafe-html.js';
+    class HtmlPreviewer extends LitElement {
+      static styles = css`
+    :host {
+      display: block;
+      font-family: sans-serif;
+    }
+    .container {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      padding: 20px;
+      height: 80vh;
+    }
+    .column {
+      display: flex;
+      flex-direction: column;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    h3 {
+      background: #f4f4f4;
+      margin: 0;
+      padding: 10px;
+      font-size: 14px;
+      border-bottom: 1px solid #ccc;
+    }
+    textarea, pre, .render-area {
+      flex: 1;
+      padding: 15px;
+      margin: 0;
+      border: none;
+      outline: none;
+      overflow-y: auto;
+    }
+    textarea {
+      resize: none;
+      font-family: monospace;
+      background: #fafafa;
+    }
+    pre {
+      background: #282c34;
+      color: #abb2bf;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .render-area {
+      background: white;
+    }
+  `;
+
+      static properties = {
+        rawInput: { type: String },
+        sanitizedOutput: { type: String },
+        lastTiming: { type: Number },
+      };
+
+      constructor() {
+        super();
+        this.rawInput = '<h1>Hello World</h1>';
+        this.sanitizedOutput = '';
+        this.lastTiming = 0;
+      }
+
+      async fetchSanitizedVersion(htmlInput) {
+        try {
+          const response = await fetch('/api/sanitize.json', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(htmlInput)
+          });
+
+          if (!response.ok) {
+            throw new Error(`Server responded with ${response.status}`);
+          }
+          const data = await response.json();
+          this.sanitizedOutput = data.Sanitized || '';
+          this.lastTiming = data.TookUs;
+
+        } catch (error) {
+          console.error("Sanitization fetch failed:", error);
+          this.sanitizedOutput = "Error: Could not retrieve sanitized source.";
+        }
+      }
+
+      handleInput(e) {
+        this.rawInput = e.target.value;
+        this.fetchSanitizedVersion(this.rawInput);
+      }
+
+      firstUpdated() {
+        this.fetchSanitizedVersion(this.rawInput);
+      }
+
+      render() {
+        return html`
+      <div class="container">
+        <div class="column">
+          <h3>Input HTML</h3>
+          <textarea 
+            .value="${this.rawInput}" 
+            @input="${this.handleInput}"
+            placeholder="Type HTML here...">
+          </textarea>
+        </div>
+
+        <div class="column">
+          <h3>Sanitized Source (API) Took ${this.lastTiming}μs</h3>
+          <pre><code>${this.sanitizedOutput}</code></pre>
+        </div>
+
+        <div class="column">
+          <h3>DOM Preview</h3>
+          <div class="render-area">
+            ${unsafeHTML(this.rawInput)}
+          </div>
+        </div>
+      </div>
+    `;
+      }
+    }
+
+    customElements.define('html-previewer', HtmlPreviewer);
+  </script>
+</head>
+
+<body>
+  <html-previewer></html-previewer>
+</body>
