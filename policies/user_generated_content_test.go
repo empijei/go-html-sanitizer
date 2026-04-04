@@ -59,11 +59,9 @@ func TestUGC(t *testing.T) {
 	want := `<div id="main-content">
 <b>This is safe bold text</b><br/>
 <img src="https://example.com/valid-image.jpg" alt="A standard 10 cm x 10 cm image" crossorigin="anonymous"/>
-<img crossorigin="anonymous"/>
 <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA
 AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO
 9TXL0Y4OHwAAAABJRU5ErkJggg==" alt="Red dot" crossorigin="anonymous"/>
-<img alt="Malicious source" crossorigin="anonymous"/>
 <table>
 <tbody><tr>
 <td>Standard cell</td>
@@ -73,7 +71,7 @@ Hidden iframe text
 </tr>
 </tbody></table>
 <ul>
-<li>Item one with a <a>Bad Link</a></li>
+<li>Item one with a Bad Link</li>
 <li>Item two with an </li>
 </ul>
 Please enter your data: 

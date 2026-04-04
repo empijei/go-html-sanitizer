@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/empijei/go-html-sanitizer/policies"
 	"github.com/empijei/go-html-sanitizer/sanitize"
 	"github.com/empijei/tst"
 	"golang.org/x/net/html"
@@ -66,6 +67,7 @@ func TestPolicy_Sanitize(t *testing.T) {
 			Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
 				"a": {"href": nil, "rel": nil},
 			},
+			URIs: policies.NewURIs(),
 			ModifyAttributes: map[sanitize.TagName][]sanitize.AttributeModifier{
 				"a": {func(_ string, attrs *[]html.Attribute) {
 					*attrs = append(*attrs, html.Attribute{Key: "rel", Val: "nofollow"})
@@ -74,6 +76,39 @@ func TestPolicy_Sanitize(t *testing.T) {
 		}
 		got := p.SanitizeString(`prefix <a href="/foo">link text</a> suffix`)
 		tst.Is(`prefix <a href="/foo" rel="nofollow">link text</a> suffix`, got, t)
+	})
+
+	t.Run("must after filter", func(t *testing.T) {
+		p := &sanitize.Policy{
+			Must: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
+				"a": {"href": nil},
+			},
+			URIs: policies.NewURIs(),
+		}
+		got := p.SanitizeString(`prefix <a href="javascript:foo()">link text</a> suffix`)
+		tst.Is(`prefix link text suffix`, got, t)
+	})
+
+	t.Run("must before filter", func(t *testing.T) {
+		p := &sanitize.Policy{
+			Must: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
+				"a": {"href": nil},
+			},
+			URIs: policies.NewURIs(),
+		}
+		got := p.SanitizeString(`prefix <a>link text</a> suffix`)
+		tst.Is(`prefix link text suffix`, got, t)
+	})
+
+	t.Run("must yes", func(t *testing.T) {
+		p := &sanitize.Policy{
+			Must: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
+				"a": {"href": nil},
+			},
+			URIs: policies.NewURIs(),
+		}
+		got := p.SanitizeString(`prefix <a href="https://foo.bar">link text</a> suffix`)
+		tst.Is(`prefix <a href="https://foo.bar">link text</a> suffix`, got, t)
 	})
 }
 
@@ -100,6 +135,7 @@ func TestPolicy_Relax(t *testing.T) {
 			Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
 				"a": {"href": nil},
 			},
+			URIs: policies.NewURIs(),
 		}
 		p2 := &sanitize.Policy{
 			Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
@@ -107,8 +143,8 @@ func TestPolicy_Relax(t *testing.T) {
 			},
 		}
 		p1.Relax(p2)
-		got := p1.SanitizeString(`<a href="/" title="home">link</a>`)
-		tst.Is(`<a href="/" title="home">link</a>`, got, t)
+		got := p1.SanitizeString(`<a href="https://trusted.dev/" title="home">link</a>`)
+		tst.Is(`<a href="https://trusted.dev/" title="home">link</a>`, got, t)
 	})
 
 	t.Run("filter OR", func(t *testing.T) {

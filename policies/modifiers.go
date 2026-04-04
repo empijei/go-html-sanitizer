@@ -8,25 +8,41 @@ import (
 	"golang.org/x/net/html"
 )
 
+// SandboxValue is a value for the iframe.sandbox attribute.
 type SandboxValue string
 
 const (
-	SandboxAllowDownloads                      SandboxValue = "allow-downloads"
+	// SandboxAllowDownloads is the value for Allow Downloads.
+	SandboxAllowDownloads SandboxValue = "allow-downloads"
+	// SandboxAllowDownloadsWithoutUserActivation is the value for Allow Downloads Without User Activation.
 	SandboxAllowDownloadsWithoutUserActivation SandboxValue = "allow-downloads-without-user-activation"
-	SandboxAllowForms                          SandboxValue = "allow-forms"
-	SandboxAllowModals                         SandboxValue = "allow-modals"
-	SandboxAllowOrientationLock                SandboxValue = "allow-orientation-lock"
-	SandboxAllowPointerLock                    SandboxValue = "allow-pointer-lock"
-	SandboxAllowPopups                         SandboxValue = "allow-popups"
-	SandboxAllowPopupsToEscapeSandbox          SandboxValue = "allow-popups-to-escape-sandbox"
-	SandboxAllowPresentation                   SandboxValue = "allow-presentation"
-	SandboxAllowSameOrigin                     SandboxValue = "allow-same-origin"
-	SandboxAllowScripts                        SandboxValue = "allow-scripts"
-	SandboxAllowStorageAccessByUserActivation  SandboxValue = "allow-storage-access-by-user-activation"
-	SandboxAllowTopNavigation                  SandboxValue = "allow-top-navigation"
-	SandboxAllowTopNavigationByUserActivation  SandboxValue = "allow-top-navigation-by-user-activation"
+	// SandboxAllowForms is the value for Allow Forms.
+	SandboxAllowForms SandboxValue = "allow-forms"
+	// SandboxAllowModals is the value for Allow Modals.
+	SandboxAllowModals SandboxValue = "allow-modals"
+	// SandboxAllowOrientationLock is the value for Allow Orientation Lock.
+	SandboxAllowOrientationLock SandboxValue = "allow-orientation-lock"
+	// SandboxAllowPointerLock is the value for Allow Pointer Lock.
+	SandboxAllowPointerLock SandboxValue = "allow-pointer-lock"
+	// SandboxAllowPopups is the value for Allow Popups.
+	SandboxAllowPopups SandboxValue = "allow-popups"
+	// SandboxAllowPopupsToEscapeSandbox is the value for Allow Popups To Escape Sandbox.
+	SandboxAllowPopupsToEscapeSandbox SandboxValue = "allow-popups-to-escape-sandbox"
+	// SandboxAllowPresentation is the value for Allow Presentation.
+	SandboxAllowPresentation SandboxValue = "allow-presentation"
+	// SandboxAllowSameOrigin is the value for Allow Same Origin.
+	SandboxAllowSameOrigin SandboxValue = "allow-same-origin"
+	// SandboxAllowScripts is the value for Allow Scripts.
+	SandboxAllowScripts SandboxValue = "allow-scripts"
+	// SandboxAllowStorageAccessByUserActivation is the value for Allow Storage Access By User Activation.
+	SandboxAllowStorageAccessByUserActivation SandboxValue = "allow-storage-access-by-user-activation"
+	// SandboxAllowTopNavigation is the value for Allow Top Navigation.
+	SandboxAllowTopNavigation SandboxValue = "allow-top-navigation"
+	// SandboxAllowTopNavigationByUserActivation is the value for Allow Top Navigation By User Activation.
+	SandboxAllowTopNavigationByUserActivation SandboxValue = "allow-top-navigation-by-user-activation"
 )
 
+// AddIFrameSandbox forces the sandbox value on iframes to match the specified allowlist.
 func AddIFrameSandbox(p *sanitize.Policy, allow ...SandboxValue) {
 	var sb strings.Builder
 	for i, v := range allow {
@@ -59,6 +75,7 @@ func AddIFrameSandbox(p *sanitize.Policy, allow ...SandboxValue) {
 	p.ModifyAttributes["iframe"] = append(p.ModifyAttributes["iframe"], applySandbox)
 }
 
+// AddAttributeCrossOrigin adds the crossorigin=anonymous attribute to tags that support it.
 func AddAttributeCrossOrigin(p *sanitize.Policy) {
 	add := func(_ string, attrs *[]html.Attribute) {
 		var crossOrigin *html.Attribute
@@ -82,6 +99,7 @@ func AddAttributeCrossOrigin(p *sanitize.Policy) {
 	p.MergeModify(addCrossOriginMap)
 }
 
+// AddAttributeTarget adds the target=_blank attribute to tags that support it.
 func AddAttributeTarget(p *sanitize.Policy) {
 	add := func(_ string, attrs *[]html.Attribute) {
 		var href, target *html.Attribute
@@ -115,6 +133,7 @@ func AddAttributeTarget(p *sanitize.Policy) {
 	p.MergeModify(addTargetMap)
 }
 
+// AddAttributeRel adds the rel="noreferrer nofollow ugc" to tags that support it.
 func AddAttributeRel(p *sanitize.Policy) {
 	add := func(_ string, attrs *[]html.Attribute) {
 		posRel, posHref := -1, -1

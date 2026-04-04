@@ -40,10 +40,8 @@ type URIs interface {
 //
 // TextNodes and ElementNodes are the only type of nodes that are kept.
 type Policy struct {
-	// Allow is the tags allowlist.
-	//
-	// Tags that are not in this map are removed from the DOM, and their children
-	// are promoted to be their siblings.
+	// Allow is the tags allowlist. Adding tags and attributes here means that those
+	// tags may appear with any of the specified attributes.
 	//
 	// If a tag appears with a nil value, it's allowed without attributes.
 	//
@@ -51,6 +49,13 @@ type Policy struct {
 	//
 	// A nil AttributeFilter is treated like an allow-all.
 	Allow map[TagName]map[AttributeName]AttributeFilter
+	// Must is like Allow, but the attributes are mandatory.
+	//
+	// Tags that appear here are implicitly allowed if and only if they have all
+	// the attributes specified.
+	//
+	// Must checks are performed before modifiers.
+	Must map[TagName]map[AttributeName]AttributeFilter
 	// AllowGlobal is like Allow but applies to all tags that are present in Allow.
 	//
 	// A nil AttributeFilter is treated like an allow-all.
@@ -117,6 +122,10 @@ func (p *Policy) SanitizeString(in string) string {
 
 func (p *Policy) sanitizeDOM(fr *dom.Fragment) error {
 	var remove []*html.Node
+	uris := p.URIs
+	if uris == nil {
+		uris = defaultURIPolicy
+	}
 	for n := range fr.FakeRoot.Descendants() {
 		if n.Type != html.ElementNode {
 			continue
@@ -127,41 +136,19 @@ func (p *Policy) sanitizeDOM(fr *dom.Fragment) error {
 			continue
 		}
 
+		mustAttrs, mustTag := p.Must[tagName]
 		allowAttrs, allowedTag := p.Allow[tagName]
-		if !allowedTag {
+		if !allowedTag && !mustTag {
 			remove = append(remove, n)
+			continue
 		}
 
-		dom.FilterAttributes(n, func(_ *html.Node, attr html.Attribute) (keep bool) {
-			key := attr.Key
-			if attr.Namespace != "" {
-				key = attr.Namespace + ":" + attr.Key
-			}
-
-			uris := p.URIs
-			if uris == nil {
-				uris = defaultURIPolicy
-			}
-
-			if v, applies := p.URIs.Validator(tagName, key); applies && !v(attr.Val) {
-				return false
-			}
-
-			flt, ok := allowAttrs[key]
-			if ok && (flt == nil || flt(attr.Val)) {
-				return true
-			}
-			gflt, ok := p.AllowGlobal[key]
-			return ok && gflt(attr.Val)
-		})
-
-		mods, ok := p.ModifyAttributes[tagName]
-		if ok {
-			for _, mod := range mods {
-				mod(tagName, &n.Attr)
-			}
+		p.filterAttributes(n, uris, tagName, allowAttrs, mustAttrs)
+		if mustTag && !p.checkMust(mustAttrs, n) {
+			remove = append(remove, n)
+			continue
 		}
-
+		p.applyModifiers(tagName, n)
 	}
 	for _, r := range remove {
 		if err := dom.RemoveNode(r); err != nil {
@@ -169,6 +156,61 @@ func (p *Policy) sanitizeDOM(fr *dom.Fragment) error {
 		}
 	}
 	return nil
+}
+
+func (*Policy) checkMust(mustAttrs map[AttributeName]AttributeFilter, n *html.Node) (keep bool) {
+	mustAttrs = maps.Clone(mustAttrs)
+	for _, attr := range n.Attr {
+		key := getKey(attr)
+		mflt, ok := mustAttrs[key]
+		if !ok {
+			continue
+		}
+		if mflt == nil || mflt(attr.Val) {
+			delete(mustAttrs, key) // Passed the check
+			continue
+		}
+		break
+	}
+	return len(mustAttrs) == 0 // All checks passed
+}
+
+func (p *Policy) applyModifiers(tagName string, n *html.Node) {
+	mods, ok := p.ModifyAttributes[tagName]
+	if ok {
+		for _, mod := range mods {
+			mod(tagName, &n.Attr)
+		}
+	}
+}
+
+func (p *Policy) filterAttributes(n *html.Node, uris URIs, tagName string, allowAttrs, mustAttrs map[AttributeName]AttributeFilter) {
+	dom.FilterAttributes(n, func(_ *html.Node, attr html.Attribute) (keep bool) {
+		key := getKey(attr)
+		if v, applies := uris.Validator(tagName, key); applies && !v(attr.Val) {
+			return false
+		}
+
+		for _, allow := range []map[AttributeName]AttributeFilter{
+			allowAttrs,
+			mustAttrs,
+			p.AllowGlobal,
+		} {
+			flt, ok := allow[key]
+			if ok && (flt == nil || flt(attr.Val)) {
+				return true
+			}
+		}
+		return false
+	})
+}
+
+func getKey(attr html.Attribute) string {
+	key := attr.Key
+	if attr.Namespace != "" {
+		return attr.Namespace + ":" + attr.Key
+	}
+	return key
 }
 
 func replaceWithText(n *html.Node, text string) {

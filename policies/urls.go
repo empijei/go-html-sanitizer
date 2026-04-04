@@ -121,7 +121,7 @@ func containsWhiteSpace(s string) bool {
 	return false
 }
 
-const maxDataURIAllowedFormatSize = len(`image/jpeg;base64,`)
+const maxDataURIAllowedFormatSize = len(`image/jpeg;`)
 
 func filterDataURIs(u *url.URL) (valid bool) {
 	var format string

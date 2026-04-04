@@ -100,6 +100,13 @@ func UserGeneratedContent() *sanitize.Policy {
 			"var":     nil,
 			"wbr":     nil,
 		},
+		Must: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
+			"a":          {"href": nil},
+			"blockquote": {"cite": nil},
+			"map":        {"name": attr.Name},
+			"q":          {"cite": nil},
+			"img":        {"src": nil},
+		},
 		URIs:             NewURIs(),
 		ModifyAttributes: map[sanitize.TagName][]sanitize.AttributeModifier{},
 		AllowGlobal:      map[sanitize.AttributeName]sanitize.AttributeFilter{},
