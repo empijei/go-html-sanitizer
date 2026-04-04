@@ -1,11 +1,10 @@
-package dom_test
+package sanitize
 
 import (
 	"fmt"
 	"strings"
 	"testing"
 
-	"github.com/empijei/go-html-sanitizer/dom"
 	"github.com/empijei/tst"
 	"golang.org/x/net/html"
 )
@@ -13,15 +12,15 @@ import (
 func TestRemoveNode(t *testing.T) {
 	check := func(t *testing.T, in, want string) {
 		t.Helper()
-		parsed := tst.Do(dom.ParseInBody(strings.NewReader(in)))(t)
-		tst.Be(parsed.FakeRoot.FirstChild != nil, t)
+		parsed := tst.Do(parseInBody(strings.NewReader(in)))(t)
+		tst.Be(parsed.fakeRoot.FirstChild != nil, t)
 
-		root := parsed.FakeRoot.FirstChild
+		root := parsed.fakeRoot.FirstChild
 
 		t.Log("Before removal:\n", render(root))
 		for desc := range root.Descendants() {
 			if len(desc.Attr) > 0 && desc.Attr[0].Val == "DELETE" {
-				tst.No(dom.RemoveNode(desc), t)
+				tst.No(removeNode(desc), t)
 			}
 		}
 		t.Log("After removal:\n", render(root))
@@ -120,10 +119,10 @@ func renderStep(sb *strings.Builder, n *html.Node, lvl int) {
 
 func TestFilterAttributes(t *testing.T) {
 	doc := `<div id="a" class="b" data-c="d"></div>`
-	parsed := tst.Do(dom.ParseInBody(strings.NewReader(doc)))(t)
-	node := parsed.FakeRoot.FirstChild
+	parsed := tst.Do(parseInBody(strings.NewReader(doc)))(t)
+	node := parsed.fakeRoot.FirstChild
 
-	dom.FilterAttributes(node, func(n *html.Node, attr html.Attribute) bool {
+	filterAttributes(node, func(n *html.Node, attr html.Attribute) bool {
 		return attr.Key == "id" || attr.Key == "data-c"
 	})
 

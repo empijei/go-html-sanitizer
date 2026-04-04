@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/empijei/go-html-sanitizer/dom"
 	"golang.org/x/net/html"
 )
 
@@ -92,7 +91,7 @@ var errSink = func(msg string, _ error) error { _ = msg; return nil }
 //
 // Errors are only returned if I/O fails. Sanitization never generates errors.
 func (p *Policy) Sanitize(dst io.Writer, src io.Reader) error {
-	fr, err := dom.ParseInBody(src)
+	fr, err := parseInBody(src)
 	if err != nil {
 		return errSink("parse", err)
 	}
@@ -100,7 +99,7 @@ func (p *Policy) Sanitize(dst io.Writer, src io.Reader) error {
 		return errSink("sanitize", err)
 	}
 	var buf bytes.Buffer
-	for desc := range fr.FakeRoot.ChildNodes() {
+	for desc := range fr.fakeRoot.ChildNodes() {
 		if err := html.Render(&buf, desc); err != nil {
 			return errSink("render", err)
 		}
@@ -123,13 +122,13 @@ func (p *Policy) SanitizeString(in string) string {
 	return sb.String()
 }
 
-func (p *Policy) sanitizeDOM(fr *dom.Fragment) error {
+func (p *Policy) sanitizeDOM(fr *fragment) error {
 	var remove []*html.Node
 	uris := p.URIs
 	if uris == nil {
 		uris = defaultURIPolicy
 	}
-	for n := range fr.FakeRoot.Descendants() {
+	for n := range fr.fakeRoot.Descendants() {
 		if n.Type != html.ElementNode {
 			continue
 		}
@@ -154,7 +153,7 @@ func (p *Policy) sanitizeDOM(fr *dom.Fragment) error {
 		p.applyModifiers(tagName, n)
 	}
 	for _, r := range remove {
-		if err := dom.RemoveNode(r); err != nil {
+		if err := removeNode(r); err != nil {
 			return err
 		}
 	}
@@ -188,7 +187,7 @@ func (p *Policy) applyModifiers(tagName string, n *html.Node) {
 }
 
 func (p *Policy) filterAttributes(n *html.Node, uris URIs, tagName string, allowAttrs, mustAttrs map[AttributeName]AttributeFilter) {
-	dom.FilterAttributes(n, func(_ *html.Node, attr html.Attribute) (keep bool) {
+	filterAttributes(n, func(_ *html.Node, attr html.Attribute) (keep bool) {
 		key := getKey(attr)
 		if v, applies := uris.Validator(tagName, key); applies && !v(attr.Val) {
 			return false
@@ -214,27 +213,6 @@ func getKey(attr html.Attribute) string {
 		return attr.Namespace + ":" + attr.Key
 	}
 	return key
-}
-
-func replaceWithText(n *html.Node, text string) {
-	// Detach children from DOM.
-	for child := range n.ChildNodes() {
-		child.Parent = nil
-	}
-	*n = html.Node{
-		Parent:      n.Parent,
-		PrevSibling: n.PrevSibling,
-		NextSibling: n.NextSibling,
-		Type:        html.TextNode,
-		Data:        text,
-
-		// Zero values, here for clarity.
-		FirstChild: nil,
-		LastChild:  nil,
-		DataAtom:   0,
-		Namespace:  "",
-		Attr:       nil,
-	}
 }
 
 // Relax modifies the policy so that all elements that would be allowed by either

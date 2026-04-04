@@ -1,5 +1,4 @@
-// Package dom provides helpers to manipulate x/net/html DOM trees.
-package dom
+package sanitize
 
 import (
 	"errors"
@@ -18,16 +17,16 @@ var parsingContextBody = func() *html.Node {
 	return n.FirstChild.LastChild
 }()
 
-// Fragment is a group of nodes parsed in a context.
-type Fragment struct {
-	// FakeRoot is an invalid html element that serves as a root for a set of children
+// fragment is a group of nodes parsed in a context.
+type fragment struct {
+	// fakeRoot is an invalid html element that serves as a root for a set of children
 	// resulting from parsing a fragment.
-	FakeRoot *html.Node
+	fakeRoot *html.Node
 }
 
-// ParseInBody returns the result of parsing the given input as if it were in the
+// parseInBody returns the result of parsing the given input as if it were in the
 // context of a <body> tag.
-func ParseInBody(in io.Reader) (*Fragment, error) {
+func parseInBody(in io.Reader) (*fragment, error) {
 	children, err := html.ParseFragment(in, parsingContextBody)
 	if err != nil {
 		return nil, fmt.Errorf("parse in body: %w", err)
@@ -48,21 +47,21 @@ func ParseInBody(in io.Reader) (*Fragment, error) {
 			children[i+1].PrevSibling = n
 		}
 	}
-	return &Fragment{
-		FakeRoot: root,
+	return &fragment{
+		fakeRoot: root,
 	}, nil
 }
 
-// ErrInvalidDOM is returned when a function of this package is called with an invalid DOM.
-var ErrInvalidDOM = errors.New("invalid DOM")
+// errInvalidDOM is returned when a function of this package is called with an invalid DOM.
+var errInvalidDOM = errors.New("invalid DOM")
 
-// RemoveNode promotes the nodes children to be a the same level of the current node,
+// removeNode promotes the nodes children to be a the same level of the current node,
 // and removes the node from the DOM.
 //
 // n MUST have a parent.
-func RemoveNode(n *html.Node) error {
+func removeNode(n *html.Node) error {
 	if n.Parent == nil {
-		return fmt.Errorf("%w: node must have a parent", ErrInvalidDOM)
+		return fmt.Errorf("%w: node must have a parent", errInvalidDOM)
 	}
 	defer func() {
 		// Detach n from DOM
@@ -84,7 +83,7 @@ func RemoveNode(n *html.Node) error {
 
 	if n.FirstChild == nil {
 		if n.LastChild != nil {
-			return fmt.Errorf("%w: node has first child but not last child", ErrInvalidDOM)
+			return fmt.Errorf("%w: node has first child but not last child", errInvalidDOM)
 		}
 		return reparentChildless(n)
 	}
@@ -103,16 +102,16 @@ func reparentChildless(n *html.Node) error {
 		}
 	case n.Parent.LastChild == n: // n is a last (but not the only) child
 		if n.PrevSibling == nil {
-			return fmt.Errorf("%w: last of many children doesn't have a prev sibling", ErrInvalidDOM)
+			return fmt.Errorf("%w: last of many children doesn't have a prev sibling", errInvalidDOM)
 		}
 		n.PrevSibling.NextSibling = nil
 		n.Parent.LastChild = n.PrevSibling
 	default: // n is a middle child
 		if n.PrevSibling == nil {
-			return fmt.Errorf("%w: middle child doesn't have a prev sibling", ErrInvalidDOM)
+			return fmt.Errorf("%w: middle child doesn't have a prev sibling", errInvalidDOM)
 		}
 		if n.NextSibling == nil {
-			return fmt.Errorf("%w: middle child doesn't have a next sibling", ErrInvalidDOM)
+			return fmt.Errorf("%w: middle child doesn't have a next sibling", errInvalidDOM)
 		}
 		n.PrevSibling.NextSibling = n.NextSibling
 		n.NextSibling.PrevSibling = n.PrevSibling
@@ -133,17 +132,17 @@ func reparentWithChildren(n *html.Node) error {
 		}
 	case n.Parent.LastChild == n: // n is a last (not only) child
 		if n.PrevSibling == nil {
-			return fmt.Errorf("%w: last of many children doesn't have a prev sibling", ErrInvalidDOM)
+			return fmt.Errorf("%w: last of many children doesn't have a prev sibling", errInvalidDOM)
 		}
 		n.PrevSibling.NextSibling = n.FirstChild
 		n.FirstChild.PrevSibling = n.PrevSibling
 		n.Parent.LastChild = n.LastChild
 	default: // n is a middle child
 		if n.PrevSibling == nil {
-			return fmt.Errorf("%w: middle child doesn't have a prev sibling", ErrInvalidDOM)
+			return fmt.Errorf("%w: middle child doesn't have a prev sibling", errInvalidDOM)
 		}
 		if n.NextSibling == nil {
-			return fmt.Errorf("%w: middle child doesn't have a next sibling", ErrInvalidDOM)
+			return fmt.Errorf("%w: middle child doesn't have a next sibling", errInvalidDOM)
 		}
 		n.PrevSibling.NextSibling = n.FirstChild
 		n.FirstChild.PrevSibling = n.PrevSibling
@@ -153,9 +152,30 @@ func reparentWithChildren(n *html.Node) error {
 	return nil
 }
 
-// FilterAttributes only keeps the attributes that the filter function returns true for.
-func FilterAttributes(n *html.Node, filter func(n *html.Node, attr html.Attribute) (keep bool)) {
+// filterAttributes only keeps the attributes that the filter function returns true for.
+func filterAttributes(n *html.Node, filter func(n *html.Node, attr html.Attribute) (keep bool)) {
 	n.Attr = slices.DeleteFunc(n.Attr, func(attr html.Attribute) bool {
 		return !filter(n, attr)
 	})
+}
+
+func replaceWithText(n *html.Node, text string) {
+	// Detach children from DOM.
+	for child := range n.ChildNodes() {
+		child.Parent = nil
+	}
+	*n = html.Node{
+		Parent:      n.Parent,
+		PrevSibling: n.PrevSibling,
+		NextSibling: n.NextSibling,
+		Type:        html.TextNode,
+		Data:        text,
+
+		// Zero values, here for clarity.
+		FirstChild: nil,
+		LastChild:  nil,
+		DataAtom:   0,
+		Namespace:  "",
+		Attr:       nil,
+	}
 }

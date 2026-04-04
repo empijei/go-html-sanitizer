@@ -1,10 +1,9 @@
-package dom_test
+package sanitize
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/empijei/go-html-sanitizer/dom"
 	"github.com/empijei/tst"
 	"golang.org/x/net/html"
 )
@@ -20,15 +19,15 @@ func FuzzRemoveNode(f *testing.F) {
 </div>`
 	f.Add(doc, byte(8))
 	f.Fuzz(func(t *testing.T, in string, pos byte) {
-		parsed, err := dom.ParseInBody(strings.NewReader(in))
+		parsed, err := parseInBody(strings.NewReader(in))
 		if err != nil {
 			return
 		}
-		t.Logf("\npos: %v\ninput: %q\nrender:\n%v\n", pos%3, in, render(parsed.FakeRoot))
+		t.Logf("\npos: %v\ninput: %q\nrender:\n%v\n", pos%3, in, render(parsed.fakeRoot))
 
-		for desc := range parsed.FakeRoot.Descendants() {
+		for desc := range parsed.fakeRoot.Descendants() {
 			if pos%3 == 0 && desc.Type == html.ElementNode {
-				tst.No(dom.RemoveNode(desc), t)
+				tst.No(removeNode(desc), t)
 			}
 			pos--
 		}

@@ -1,10 +1,8 @@
 package match_test
 
 import (
-	"strings"
 	"testing"
 
-	"github.com/empijei/go-html-sanitizer/dom"
 	"github.com/empijei/go-html-sanitizer/match"
 	"github.com/empijei/tst"
 )
@@ -210,10 +208,4 @@ func TestRunesNot(t *testing.T) {
 	check(t, m, "bacd", false)
 }
 
-// Add tests to cover CombineEager
-
-func TestAtom(t *testing.T) {
-	tst.Go(t)
-	n := tst.Do(dom.ParseInBody(strings.NewReader(`<A-CUSTOM-ELEM></A-CUSTOM-ELEM>`)))(t)
-	tst.Is("a-custom-elem", n.FakeRoot.FirstChild.Data, t)
-}
+// TODO Add tests to cover CombineEager
