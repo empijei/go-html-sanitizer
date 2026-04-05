@@ -1,0 +1,36 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/empijei/go-html-sanitizer/policies
+cpu: Apple M4 Pro
+BenchmarkReal/large-14              5         215653417 ns/op          70.49 MB/s           215.6 ms/op      152684475 B/op   5067193 allocs/op
+BenchmarkReal/large-14              5         215484592 ns/op          70.55 MB/s           215.4 ms/op      152988268 B/op   5067227 allocs/op
+BenchmarkReal/large-14              5         215305875 ns/op          70.61 MB/s           215.2 ms/op      152758920 B/op   5067199 allocs/op
+BenchmarkReal/large-14              5         214633650 ns/op          70.83 MB/s           214.6 ms/op      152908563 B/op   5067214 allocs/op
+BenchmarkReal/large-14              5         217311417 ns/op          69.95 MB/s           217.2 ms/op      152910939 B/op   5067215 allocs/op
+BenchmarkReal/large-14              5         214824542 ns/op          70.76 MB/s           214.8 ms/op      152949289 B/op   5067220 allocs/op
+BenchmarkReal/large-14              5         216211608 ns/op          70.31 MB/s           216.2 ms/op      152715867 B/op   5067198 allocs/op
+BenchmarkReal/large-14              5         215297850 ns/op          70.61 MB/s           215.2 ms/op      152793713 B/op   5067207 allocs/op
+BenchmarkReal/large-14              5         216216958 ns/op          70.31 MB/s           216.2 ms/op      153211568 B/op   5067245 allocs/op
+BenchmarkReal/large-14              5         216156267 ns/op          70.33 MB/s           216.0 ms/op      152910872 B/op   5067215 allocs/op
+BenchmarkReal/medium-14          7690            148993 ns/op          94.21 MB/s             0.1489 ms/op     123402 B/op       3370 allocs/op
+BenchmarkReal/medium-14          7812            149655 ns/op          93.79 MB/s             0.1496 ms/op     123366 B/op       3370 allocs/op
+BenchmarkReal/medium-14          7647            149649 ns/op          93.79 MB/s             0.1496 ms/op     123323 B/op       3370 allocs/op
+BenchmarkReal/medium-14          7813            150089 ns/op          93.52 MB/s             0.1500 ms/op     123364 B/op       3370 allocs/op
+BenchmarkReal/medium-14          7938            149281 ns/op          94.02 MB/s             0.1492 ms/op     123315 B/op       3370 allocs/op
+BenchmarkReal/medium-14          7686            150192 ns/op          93.45 MB/s             0.1501 ms/op     123413 B/op       3370 allocs/op
+BenchmarkReal/medium-14          7507            151073 ns/op          92.91 MB/s             0.1511 ms/op     123421 B/op       3370 allocs/op
+BenchmarkReal/medium-14          7502            153328 ns/op          91.54 MB/s             0.1533 ms/op     123376 B/op       3370 allocs/op
+BenchmarkReal/medium-14          7845            148640 ns/op          94.43 MB/s             0.1486 ms/op     123513 B/op       3370 allocs/op
+BenchmarkReal/medium-14          7851            150596 ns/op          93.20 MB/s             0.1506 ms/op     123496 B/op       3370 allocs/op
+BenchmarkReal/small-14          96817             12211 ns/op          84.68 MB/s             0.01221 ms/op      9744 B/op        304 allocs/op
+BenchmarkReal/small-14          97518             12350 ns/op          83.72 MB/s             0.01235 ms/op      9744 B/op        304 allocs/op
+BenchmarkReal/small-14          96075             12399 ns/op          83.39 MB/s             0.01240 ms/op      9744 B/op        304 allocs/op
+BenchmarkReal/small-14          95984             12410 ns/op          83.32 MB/s             0.01241 ms/op      9744 B/op        304 allocs/op
+BenchmarkReal/small-14          97629             12124 ns/op          85.29 MB/s             0.01212 ms/op      9744 B/op        304 allocs/op
+BenchmarkReal/small-14          97406             12291 ns/op          84.13 MB/s             0.01229 ms/op      9744 B/op        304 allocs/op
+BenchmarkReal/small-14          96660             12319 ns/op          83.94 MB/s             0.01231 ms/op      9744 B/op        304 allocs/op
+BenchmarkReal/small-14          96289             12365 ns/op          83.62 MB/s             0.01236 ms/op      9744 B/op        304 allocs/op
+BenchmarkReal/small-14          95694             12266 ns/op          84.30 MB/s             0.01226 ms/op      9744 B/op        304 allocs/op
+BenchmarkReal/small-14          96267             12367 ns/op          83.61 MB/s             0.01236 ms/op      9744 B/op        304 allocs/op
+PASS
+ok      github.com/empijei/go-html-sanitizer/policies   71.073s

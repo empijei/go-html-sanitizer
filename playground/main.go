@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	_ "embed"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -50,5 +51,7 @@ func main() {
 
 		return resp, nil
 	})
-	_ = http.ListenAndServe("localhost:8042", mux) //nolint: gosec // only used for local testing.
+	addr := "localhost:8042"
+	fmt.Println("Listening on http://" + addr)
+	_ = http.ListenAndServe(addr, mux) //nolint: gosec // only used for local testing.
 }

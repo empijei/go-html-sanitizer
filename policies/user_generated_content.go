@@ -12,6 +12,8 @@ import (
 var (
 	double  = match.Numbers().Matcher()
 	integer = match.Integer().Matcher()
+	anon    = match.Exact("anonymous").Matcher()
+	blank   = match.Exact("_blank").Matcher()
 )
 
 // UserGeneratedContent returns a policy that can be used for user generated content.
@@ -23,7 +25,11 @@ var (
 func UserGeneratedContent() *sanitize.Policy {
 	p := &sanitize.Policy{
 		Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
-			"a":       {"href": nil},
+			"a": {
+				"href":   nil,
+				"rel":    attr.Rel,
+				"target": blank,
+			},
 			"abbr":    nil,
 			"acronym": nil,
 			"area": {
@@ -32,6 +38,7 @@ func UserGeneratedContent() *sanitize.Policy {
 				"href":   nil,
 				"rel":    attr.Rel,
 				"shape":  attr.Shapes,
+				"target": blank,
 			},
 			"article":    nil,
 			"aside":      nil,
@@ -140,12 +147,13 @@ var (
 	// AllowImages is a map to insert into a policy Allow to enable images.
 	AllowImages = map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
 		"img": {
-			"align":  attr.ImgAlign,
-			"usemap": attr.UseMap,
-			"alt":    attr.FreeText,
-			"src":    nil,
-			"height": attr.NumberOrPercent,
-			"width":  attr.NumberOrPercent,
+			"align":       attr.ImgAlign,
+			"usemap":      attr.UseMap,
+			"alt":         attr.FreeText,
+			"src":         nil,
+			"height":      attr.NumberOrPercent,
+			"width":       attr.NumberOrPercent,
+			"crossorigin": anon,
 		},
 	}
 

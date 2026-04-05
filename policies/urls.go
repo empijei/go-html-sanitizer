@@ -60,6 +60,9 @@ func (u *URIs) valid(rawurl string) bool {
 	if err != nil {
 		return false
 	}
+	if pu.String() != rawurl {
+		return false
+	}
 	if !pu.IsAbs() && u.BlockRelative {
 		return false
 	}

@@ -7,63 +7,98 @@
 
     class MultiSanitizer extends LitElement {
       static styles = css`
-    :host {
-      display: block;
-      height: 100vh;
-      font-family: system-ui, sans-serif;
-    }
-    .main-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
-      padding: 10px;
-      height: calc(100% - 20px);
-    }
-    .input-col {
-      display: flex;
-      flex-direction: column;
-    }
-    .split-col {
-      display: grid;
-      grid-template-rows: 1fr 1fr;
-      gap: 10px;
-    }
-    .panel {
-      display: flex;
-      flex-direction: column;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      overflow: hidden;
-      background: #fff;
-    }
-    .label {
-      background: #333;
-      color: #fff;
-      padding: 6px 12px;
-      font-size: 12px;
-      font-weight: bold;
-    }
-    textarea, pre, .preview {
-      flex: 1;
-      margin: 0;
-      padding: 10px;
-      overflow: auto;
-      border: none;
-    }
-    textarea {
-      background: #f9f9f9;
-      font-family: monospace;
-      resize: none;
-    }
-    pre {
-      font-size: 12px;
-      margin: 0;
-      text-wrap: auto;
-    }
-    .preview {
-      border-top: 1px solid #eee;
-    }
-  `;
+        :host {
+          --bg-panel: #fff;
+          --bg-input: #f9f9f9;
+          --bg-label: #333;
+          --text-main: #000;
+          --text-label: #fff;
+          --border-color: #ddd;
+          --border-preview: #eee;
+
+          display: block;
+          height: 100vh;
+          font-family: system-ui, sans-serif;
+          background: var(--bg-input);
+          color: var(--text-main);
+        }
+
+        @media (prefers-color-scheme: dark) {
+          :host {
+            --bg-panel: #4d4d4d;
+            --bg-input: #1e1e1e;
+            --bg-label: #000;
+            --text-main: #e0e0e0;
+            --text-label: #bbb;
+            --border-color: #444;
+            --border-preview: #333;
+          }
+        }
+
+        .main-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 10px;
+          padding: 10px;
+          height: calc(100% - 20px);
+        }
+
+        .input-col {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .split-col {
+          display: grid;
+          grid-template-rows: 1fr 1fr;
+          gap: 10px;
+        }
+
+        .panel {
+          display: flex;
+          flex-direction: column;
+          border: 1px solid var(--border-color);
+          border-radius: 4px;
+          overflow: hidden;
+          background: var(--bg-panel);
+        }
+
+        .label {
+          background: var(--bg-label);
+          color: var(--text-label);
+          padding: 6px 12px;
+          font-size: 12px;
+          font-weight: bold;
+        }
+
+        textarea, pre, .preview {
+          flex: 1;
+          margin: 0;
+          padding: 10px;
+          overflow: auto;
+          border: none;
+          color: inherit;
+        }
+
+        textarea {
+          background: var(--bg-input);
+          font-family: monospace;
+          resize: none;
+          outline: none;
+        }
+
+        pre {
+          font-size: 12px;
+          margin: 0;
+          white-space: pre-wrap;
+          word-break: break-all;
+        }
+
+        .preview {
+          border-top: 1px solid var(--border-preview);
+          background: var(--bg-panel);
+        }
+      `;
 
       static properties = {
         input: { type: String },
@@ -76,19 +111,13 @@
       constructor() {
         super();
         this.input = `<h1>Test</h1>
-
 <u>These tags <i> are not </u> balanced </i>
-
 <br><br>
-
-</div> This closing tag is orphaned; this is really bad when rendering on the server, here the browser is doing the magic of rebalancing the DOM.
-
+</div> This closing tag is orphaned...
 <br><br>
-
-<img src=x onerror=alert(1)></img> this is a bad closing tag
-
+<img src=x onerror=alert(1)></img>
 <br><br>
-`
+<A href="https://usethis.com" href="malicious" onclick=alert(1)>duplicated attributes are invalid</a>`;
         this.domSanitized = '';
         this.tokSanitized = '';
         this.tookDOM = 0;
@@ -99,15 +128,12 @@
         try {
           const response = await fetch('/api/sanitize.json', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(htmlInput)
           });
 
-          if (!response.ok) {
-            throw new Error(`Server responded with ${response.status}`);
-          }
+          if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+
           const data = await response.json();
           this.domSanitized = data.DOMSanitized;
           this.tokSanitized = data.TOKSanitized;
@@ -115,10 +141,8 @@
           this.tookTOK = data.TookTOKUs;
         } catch (error) {
           console.error("Sanitization fetch failed:", error);
-          this.sanitizedOutput = "Error: Could not retrieve sanitized source.";
         }
       }
-
 
       handleInput(e) {
         this.input = e.target.value;
@@ -131,40 +155,46 @@
 
       render() {
         return html`
-  <div class="main-grid">
-    <div class="panel input-col">
-      <div class="label">Input HTML</div>
-      <textarea .value="${this.input}" @input="${this.handleInput}"></textarea>
-    </div>
+          <div class="main-grid">
+            <div class="panel input-col">
+              <div class="label">Input HTML</div>
+              <textarea .value="${this.input}" @input="${this.handleInput}"></textarea>
+            </div>
 
-    <div class="split-col">
-      <div class="panel">
-        <div class="label">DOM-Based Sanitizer (Source) [${this.tookDOM}μs]</div>
-        <pre><code>${this.domSanitized}</code></pre>
-      </div>
-      <div class="panel">
-        <div class="label">Token-Based Sanitizer (Source) [${this.tookTOK}μs]</div>
-        <pre><code>${this.tokSanitized}</code></pre>
-      </div>
-    </div>
+            <div class="split-col">
+              <div class="panel">
+                <div class="label">DOM-Based Sanitizer (Source) [${this.tookDOM}μs]</div>
+                <pre><code>${this.domSanitized}</code></pre>
+              </div>
+              <div class="panel">
+                <div class="label">Token-Based Sanitizer (Source) [${this.tookTOK}μs]</div>
+                <pre><code>${this.tokSanitized}</code></pre>
+              </div>
+            </div>
 
-    <div class="split-col">
-      <div class="panel">
-        <div class="label">DOM-Based: Preview</div>
-        <div class="preview">${unsafeHTML(this.domSanitized)}</div>
-      </div>
-      <div class="panel">
-        <div class="label">Token-Based: Preview</div>
-        <div class="preview">${unsafeHTML(this.tokSanitized)}</div>
-      </div>
-    </div>
-  </div>
-  `;
+            <div class="split-col">
+              <div class="panel">
+                <div class="label">DOM-Based: Preview</div>
+                <div class="preview">${unsafeHTML(this.domSanitized)}</div>
+              </div>
+              <div class="panel">
+                <div class="label">Token-Based: Preview</div>
+                <div class="preview">${unsafeHTML(this.tokSanitized)}</div>
+              </div>
+            </div>
+          </div>
+        `;
       }
     }
 
     customElements.define('multi-sanitizer', MultiSanitizer);
   </script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+    }
+  </style>
 </head>
 
 <body>

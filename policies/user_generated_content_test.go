@@ -97,41 +97,6 @@ func BenchmarkUGC_Sanitize(b *testing.B) {
 	}
 }
 
-//go:embed testdata/html.spec.whatwg.org_index.html
-var massiveHTML string
-
-func BenchmarkWithLargeHTML(b *testing.B) {
-	ugcp := policies.UserGeneratedContent()
-	in := strings.NewReader(massiveHTML)
-	b.SetBytes(1 * 1024 * 1024)
-	b.ReportAllocs()
-	b.ResetTimer()
-	for b.Loop() {
-		got := ugcp.Sanitize(io.Discard, in)
-		_ = got
-		in.Reset(massiveHTML)
-	}
-	b.StopTimer()
-	msPerOp := float64(b.Elapsed().Milliseconds()) / float64(b.N)
-	b.ReportMetric(msPerOp, "ms/op")
-}
-
-func BenchmarkBMWithLargeHTML(b *testing.B) {
-	ugcp := bluemonday.UGCPolicy()
-	in := strings.NewReader(massiveHTML)
-	b.SetBytes(1 * 1024 * 1024)
-	b.ReportAllocs()
-	b.ResetTimer()
-	for b.Loop() {
-		got := ugcp.SanitizeReaderToWriter(in, io.Discard)
-		_ = got
-		in.Reset(massiveHTML)
-	}
-	b.StopTimer()
-	msPerOp := float64(b.Elapsed().Milliseconds()) / float64(b.N)
-	b.ReportMetric(msPerOp, "ms/op")
-}
-
 func stripWhitespace(input string) string {
 	var result strings.Builder
 	scanner := bufio.NewScanner(strings.NewReader(input))
@@ -175,4 +140,71 @@ func TestAttributeModifiers(t *testing.T) {
 <iframe src="https://alsotrusted.org/5" sandbox="allow-forms"></iframe>
 `
 	tst.Is(want, stripWhitespace(got), t)
+}
+
+var (
+	//go:embed testdata/html.spec.whatwg.org_index.html
+	massiveHTML string
+	//go:embed testdata/thebestmotherfucking.website_index.html
+	mediumHTML string
+	//go:embed testdata/generated.html
+	smallHTML string
+)
+
+func BenchmarkReal(b *testing.B) {
+	realBenchmark := func(b *testing.B, subj func(io.Reader), src string) {
+		b.SetBytes(int64(len(src)))
+		b.ReportAllocs()
+		b.ResetTimer()
+		in := strings.NewReader(src)
+		for b.Loop() {
+			subj(in)
+			in.Reset(src)
+		}
+		b.StopTimer()
+		msPerOp := float64(b.Elapsed().Milliseconds()) / float64(b.N)
+		b.ReportMetric(msPerOp, "ms/op")
+	}
+
+	b.Run("large", func(b *testing.B) {
+		ugcp := policies.UserGeneratedContent()
+		realBenchmark(b, func(in io.Reader) {
+			_ = ugcp.Sanitize(io.Discard, in)
+		}, massiveHTML)
+	})
+
+	b.Run("large BM", func(b *testing.B) {
+		ugcp := bluemonday.UGCPolicy()
+		realBenchmark(b, func(in io.Reader) {
+			_ = ugcp.SanitizeReaderToWriter(in, io.Discard)
+		}, massiveHTML)
+	})
+
+	b.Run("medium", func(b *testing.B) {
+		ugcp := policies.UserGeneratedContent()
+		realBenchmark(b, func(in io.Reader) {
+			_ = ugcp.Sanitize(io.Discard, in)
+		}, mediumHTML)
+	})
+
+	b.Run("medium BM", func(b *testing.B) {
+		ugcp := bluemonday.UGCPolicy()
+		realBenchmark(b, func(in io.Reader) {
+			_ = ugcp.SanitizeReaderToWriter(in, io.Discard)
+		}, mediumHTML)
+	})
+
+	b.Run("small", func(b *testing.B) {
+		ugcp := policies.UserGeneratedContent()
+		realBenchmark(b, func(in io.Reader) {
+			_ = ugcp.Sanitize(io.Discard, in)
+		}, smallHTML)
+	})
+
+	b.Run("small BM", func(b *testing.B) {
+		ugcp := bluemonday.UGCPolicy()
+		realBenchmark(b, func(in io.Reader) {
+			_ = ugcp.SanitizeReaderToWriter(in, io.Discard)
+		}, smallHTML)
+	})
 }

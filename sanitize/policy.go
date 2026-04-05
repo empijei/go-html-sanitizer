@@ -42,26 +42,27 @@ type URIs interface {
 // Policy is a policy to sanitize HTML.
 //
 // TextNodes and ElementNodes are the only type of nodes that are kept.
+//
+// Once a policy is built, it's safe for concurrent use as long as its fields are
+// not modified.
 type Policy struct {
 	// Allow is the tags allowlist. Adding tags and attributes here means that those
-	// tags may appear with any of the specified attributes.
+	// tags may appear with any (or none) of the specified attributes.
 	//
-	// If a tag appears with a nil value, it's allowed without attributes.
+	// If a tag appears with a nil value, it's allowed, but with no attributes.
 	//
 	// If an AttributeFilter doesn't match the given attribute, the whole attribute is removed.
 	//
 	// A nil AttributeFilter is treated like an allow-all.
+	//
+	// Rules are applied after modifiers.
 	Allow map[TagName]map[AttributeName]AttributeFilter
 	// Must is like Allow, but the attributes are mandatory.
 	//
 	// Tags that appear here are implicitly allowed if and only if they have all
 	// the attributes specified.
-	//
-	// Must checks are performed before modifiers.
 	Must map[TagName]map[AttributeName]AttributeFilter
 	// AllowGlobal is like Allow but applies to all tags that are present in Allow.
-	//
-	// A nil AttributeFilter is treated like an allow-all.
 	AllowGlobal map[AttributeName]AttributeFilter
 	// URIs is the policy applied to URIs.
 	//
@@ -72,8 +73,8 @@ type Policy struct {
 	URIs URIs
 	// ModifyAttributes allows to modify attributes for nodes.
 	//
-	// Modify is executed after filters, so attributes that are added or modified
-	// by these functions are implicitly trusted.
+	// Modify is executed before filters, so attributes that are added or modified
+	// need to still be valid according to the policy.
 	//
 	// Modifers MUST NOT be nil.
 	ModifyAttributes map[TagName][]AttributeModifier
@@ -86,23 +87,40 @@ type Policy struct {
 	Remove map[TagName]string
 }
 
-var errSink = func(msg string, _ error) error { _ = msg; return nil }
+var nopErrSink = func(string, error) {}
 
 // Sanitize applies the policy to the given HTML reader.
 //
 // Errors are only returned if I/O fails. Sanitization never generates errors.
 func (p *Policy) Sanitize(dst io.Writer, src io.Reader) error {
+	return p.SanitizeInspect(dst, src, nopErrSink)
+}
+
+// SanitizeInspect is like Sanitize, but allows to pass an inspect function that
+// collects potential sanitizer errors when they happen.
+func (p *Policy) SanitizeInspect(dst io.Writer, src io.Reader, errSink func(msg string, err error)) error {
+	defer func() {
+		/*
+			FIXME: put this back once we are done fuzzing
+				if p := recover(); p != nil {
+					errSink("panic in sanitize", fmt.Errorf("recovered panic: %v", p))
+				}
+		*/
+	}()
 	fr, err := parseInBody(src)
 	if err != nil {
-		return errSink("parse", err)
+		errSink("parse", err)
+		return nil
 	}
 	if err := p.sanitizeDOM(fr); err != nil {
-		return errSink("sanitize", err)
+		errSink("sanitize", err)
+		return nil
 	}
 	var buf bytes.Buffer
 	for desc := range fr.fakeRoot.ChildNodes() {
 		if err := html.Render(&buf, desc); err != nil {
-			return errSink("render", err)
+			errSink("render", err)
+			return nil
 		}
 	}
 	_, err = io.Copy(dst, &buf)
@@ -152,13 +170,12 @@ func (p *Policy) sanitizeDOM(fr *fragment) error {
 			remove = append(remove, n)
 			continue
 		}
-
+		p.applyModifiers(tagName, n)
 		p.filterAttributes(n, uris, tagName, allowAttrs, mustAttrs)
 		if mustTag && !p.checkMust(mustAttrs, n) {
 			remove = append(remove, n)
 			continue
 		}
-		p.applyModifiers(tagName, n)
 	}
 	for _, r := range remove {
 		if err := removeNode(r); err != nil {
@@ -197,9 +214,18 @@ func (p *Policy) applyModifiers(tagName string, n *html.Node) {
 	}
 }
 
+var seenPool = mpool.New[string, struct{}]()
+
 func (p *Policy) filterAttributes(n *html.Node, uris URIs, tagName string, allowAttrs, mustAttrs map[AttributeName]AttributeFilter) {
+	seen, release := seenPool.Get()
+	defer release()
 	filterAttributes(n, func(_ *html.Node, attr html.Attribute) (keep bool) {
 		key := getKey(attr)
+		if _, ok := seen[key]; ok {
+			return false // duplicate attribute
+		}
+		seen[key] = struct{}{}
+
 		if v, applies := uris.Validator(tagName, key); applies && !v(attr.Val) {
 			return false
 		}

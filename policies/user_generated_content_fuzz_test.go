@@ -1,11 +1,13 @@
 package policies_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/empijei/go-html-sanitizer/policies"
 	"github.com/empijei/go-html-sanitizer/sanitize"
+	"github.com/empijei/tst"
 	"github.com/microcosm-cc/bluemonday"
 	"golang.org/x/net/html"
 )
@@ -21,36 +23,56 @@ var payloads = []string{
 
 var ugc = policies.UserGeneratedContent()
 
+func sanit(t *testing.T, in string) string {
+	t.Helper()
+	var sb strings.Builder
+	var sanitErr error
+	err := ugc.SanitizeInspect(&sb, strings.NewReader(in), func(msg string, err error) {
+		sanitErr = fmt.Errorf("%s: %w", msg, err)
+	})
+	if err != nil {
+		t.Errorf("Unexpected copy error: %v", sanitErr)
+	}
+	if sanitErr != nil {
+		t.Errorf("Unexpected sanitization error: %v", sanitErr)
+	}
+	return sb.String()
+}
+
 func FuzzSanitizeIsStable(f *testing.F) {
 	for _, p := range payloads {
 		f.Add(p)
 	}
-	f.Fuzz(func(t *testing.T, data string) {
-		firstPass := ugc.SanitizeString(data)
-		secondPass := ugc.SanitizeString(firstPass)
-		if firstPass != secondPass {
-			t.Errorf("\nInput:\n%q\n\nFirstPass:\n%q\n\nSecondPass:%q\n\n", data, firstPass, secondPass)
-		}
+	f.Fuzz(sanitizeIsStable)
+}
+
+func TestRegressionSanitizeIsStable(t *testing.T) {
+	tst.Go(t)
+	t.Run("duplicate href", func(t *testing.T) {
+		sanitizeIsStable(t, "<A href=0\v href>")
+	})
+	t.Run("bad url 1 ", func(t *testing.T) {
+		sanitizeIsStable(t, "<A href=\"\t00\">")
 	})
 }
 
-func FuzzSanitizeDoesntEmitScripts(f *testing.F) {
-	for _, p := range payloads {
-		f.Add(p)
+func sanitizeIsStable(t *testing.T, data string) {
+	firstPass := sanit(t, data)
+	secondPass := sanit(t, firstPass)
+	if firstPass != secondPass {
+		t.Errorf("\nInput:\n%q\n\nFirstPass:\n%q\n\nSecondPass:%q\n\n", data, firstPass, secondPass)
 	}
-	f.Fuzz(func(t *testing.T, data string) {
-		sanitized := ugc.SanitizeString(data)
-		n, err := html.Parse(strings.NewReader(sanitized))
-		if err != nil {
-			t.Errorf("Failed to parse sanitized input %q with error %v", sanitized, err)
-		}
-		if checkForScriptTags(n) {
-			t.Errorf("Sanitized input %q contains script tags", sanitized)
-		}
-		if checkForEventHandlers(n) {
-			t.Errorf("Sanitized input %q contains event handlers", sanitized)
-		}
-	})
+	sanitized := secondPass
+	n, err := html.Parse(strings.NewReader(sanitized))
+	if err != nil {
+		t.Errorf("Failed to parse sanitized input %q with error %v", sanitized, err)
+	}
+	if checkForScriptTags(n) {
+		t.Errorf("Sanitized input %q contains script tags", sanitized)
+	}
+	if checkForEventHandlers(n) {
+		t.Errorf("Sanitized input %q contains event handlers", sanitized)
+	}
 }
 
 func checkForScriptTags(n *html.Node) bool {

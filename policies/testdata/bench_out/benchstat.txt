@@ -1,0 +1,26 @@
+benchstat testdata/out/benchmark_bluemonday.txt testdata/out/benchmark_this.txt 
+goos: darwin
+goarch: arm64
+pkg: github.com/empijei/go-html-sanitizer/policies
+cpu: Apple M4 Pro
+               │ testdata/out/benchmark_bluemonday.txt │   testdata/out/benchmark_this.txt   │
+               │                sec/op                 │   sec/op     vs base                │
+Real/large-14                              215.6m ± 0%   190.9m ± 1%  -11.46% (p=0.000 n=10)
+Real/medium-14                             149.9µ ± 1%   136.3µ ± 1%   -9.07% (p=0.000 n=10)
+Real/small-14                              12.33µ ± 1%   12.78µ ± 1%   +3.62% (p=0.000 n=10)
+geomean                                    735.9µ        692.7µ        -5.86%
+
+               │ testdata/out/benchmark_bluemonday.txt │    testdata/out/benchmark_this.txt    │
+               │                 B/op                  │     B/op       vs base                │
+Real/large-14                             145.8Mi ± 0%    166.3Mi ± 0%  +14.03% (p=0.000 n=10)
+Real/medium-14                            120.5Ki ± 0%    145.0Ki ± 0%  +20.37% (p=0.000 n=10)
+Real/small-14                             9.516Ki ± 0%   18.167Ki ± 0%  +90.92% (p=0.000 n=10)
+geomean                                   555.3Ki         765.5Ki       +37.87%
+
+               │ testdata/out/benchmark_bluemonday.txt │   testdata/out/benchmark_this.txt   │
+               │               allocs/op               │  allocs/op   vs base                │
+Real/large-14                              5.067M ± 0%   1.901M ± 0%  -62.48% (p=0.000 n=10)
+Real/medium-14                             3.370k ± 0%   1.382k ± 0%  -58.99% (p=0.000 n=10)
+Real/small-14                               304.0 ± 0%    176.0 ± 0%  -42.11% (p=0.000 n=10)
+geomean                                    17.32k        7.733k       -55.34%
+

@@ -117,7 +117,7 @@ func AddAttributeTarget(p *sanitize.Policy) {
 		}
 		u, err := url.Parse(href.Val)
 		if err != nil {
-			href.Val = ""
+			return
 		}
 		if !u.IsAbs() {
 			return
@@ -148,26 +148,25 @@ func AddAttributeRel(p *sanitize.Policy, vals ...string) {
 		set[k] = struct{}{}
 	}
 	add := func(_ string, attrs *[]html.Attribute) {
-		posRel, posHref := -1, -1
+		var rel, href *html.Attribute
 		for i, attr := range *attrs {
 			switch attr.Key {
 			case "rel":
-				posRel = i
+				rel = &(*attrs)[i]
 			case "href":
-				posHref = i
+				href = &(*attrs)[i]
 			}
 		}
-		if posHref < 0 {
+		if href == nil {
 			return
 		}
-		if posRel < 0 {
+		if rel == nil {
 			(*attrs) = append((*attrs), html.Attribute{
 				Key: "rel",
 				Val: prebuilt,
 			})
 			return
 		}
-		rel := &(*attrs)[posRel]
 		if rel.Val == "" {
 			rel.Val = prebuilt
 			return
