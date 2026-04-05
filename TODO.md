@@ -1,30 +1,31 @@
 # Features
 
+- [] https://pkg.go.dev/github.com/microcosm-cc/bluemonday#Policy.AllowDataAttributes
 - [] Rewrite Rules
-  - [] Map of tags to replace with space (could provide a simple derfault with https://html.spec.whatwg.org/multipage/dom.html#flow-content). This would be an improvement on https://pkg.go.dev/github.com/microcosm-cc/bluemonday#Policy.AddSpaceWhenStrippingTag
+  - [] Rewrite src https://pkg.go.dev/github.com/microcosm-cc/bluemonday#Policy.RewriteSrc
   - [x] https://pkg.go.dev/github.com/microcosm-cc/bluemonday#Policy.AddTargetBlankToFullyQualifiedLinks
   - [x] Add rel="noreferrer nofollow ugc" to all links https://pkg.go.dev/github.com/microcosm-cc/bluemonday#Policy.AllowStandardURLs
   - [x] Add empty sandbox attribute to iframes if they are allowed
   - [x] Add crossorigin="anonymous" https://pkg.go.dev/github.com/microcosm-cc/bluemonday#Policy.RequireCrossOriginAnonymous
-  - [] Rewrite src https://pkg.go.dev/github.com/microcosm-cc/bluemonday#Policy.RewriteSrc
 - [x] The concept of a policy with allowed tags and attrs, with methods:
   - [x] Relax ("OR" two policies)
   - [x] Restrict ("AND" two policies)
-- [] https://pkg.go.dev/github.com/microcosm-cc/bluemonday#Policy.AllowDataAttributes
 - [x] https://pkg.go.dev/github.com/microcosm-cc/bluemonday#Policy.AllowDataURIImages
 - [x] Allow Global
+- [] Debug probe to get reason stuff is removed?
 
 # Prebuilt policies
 
-- Allow Lists
-- Allow Images
-- Allow Tables
-- Allow Data URI images
-- ValidateURLs (with optional allowRelative)
-- Allow Standard URLs https://pkg.go.dev/github.com/microcosm-cc/bluemonday#Policy.AllowStandardURLs
+- [x] Allow Lists
+- [x] Allow Images
+- [x] Allow Tables
+- [x] Allow Data URI images
+- [x] ValidateURLs (with optional allowRelative)
+- [x] Allow Standard URLs https://pkg.go.dev/github.com/microcosm-cc/bluemonday#Policy.AllowStandardURLs
 
 # Decisions
 
+- Map of tags to replace with space (could provide a simple derfault with https://html.spec.whatwg.org/multipage/dom.html#flow-content). This would be an improvement on https://pkg.go.dev/github.com/microcosm-cc/bluemonday#Policy.AddSpaceWhenStrippingTag
 - Should we allow comments?
 - What is this for https://pkg.go.dev/github.com/microcosm-cc/bluemonday#Policy.AllowElementsContent
 - Do we want a set of special rules to support stuff like AllowMatching?
@@ -42,3 +43,11 @@ How does this behave?
 Programmatically constructed trees are typically also 'well-formed', but it is possible to construct a tree that looks innocuous but, when rendered and re-parsed, results in a different tree. A simple example is that a solitary text node would become a tree containing <html>, <head> and <body> elements. Another example is that the programmatic equivalent of "a<head>b</head>c" becomes "<html><head><head/><body>abc</body></html>".
 
 Does Render re-escape HTML entities?
+
+# DOCUMENTATION
+
+Update README with:
+
+- Threat model
+- Expectations
+- Examples

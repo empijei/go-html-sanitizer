@@ -129,8 +129,15 @@ func (p *Policy) sanitizeDOM(fr *fragment) error {
 		uris = defaultURIPolicy
 	}
 	for n := range fr.fakeRoot.Descendants() {
-		if n.Type != html.ElementNode {
+		switch n.Type {
+		case html.TextNode:
+			continue // Text is always safe
+		case html.ErrorNode, html.DocumentNode, html.CommentNode, html.DoctypeNode, html.RawNode:
+			// Remove everything else, including comments.
+			remove = append(remove, n)
 			continue
+		case html.ElementNode:
+			// Run the sanitizer
 		}
 		tagName := n.Data
 		if replace, ok := p.Remove[tagName]; ok {

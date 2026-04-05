@@ -14,7 +14,8 @@ var (
 	// Lang matches language codes.
 	Lang = match.ASCIISetLetters().Insert('-').StepBetween(2, 20).Matcher() //nolint: mnd // Carried over from bluemonday.
 	// FreeText matches text that does not contain HTML special characters (", ', &, <, >).
-	FreeText = match.RunesNot('"', '\'', '&', '<', '>').Matcher()
+	FreeText = match.Or(match.None(),
+		match.RunesNot('"', '\'', '&', '<', '>')).Matcher()
 	// Name matches alphanumeric characters and dashes.
 	Name = match.RunesFunc(func(r rune) bool {
 		return unicode.IsLetter(r) || unicode.IsNumber(r) || unicode.Is(unicode.Dash, r)

@@ -2,73 +2,100 @@
 
 <head>
   <script type="module">
-    import { html, css, LitElement } from 'https://esm.run/lit';
+    import { LitElement, html, css } from 'https://esm.run/lit';
     import { unsafeHTML } from 'https://esm.run/lit/directives/unsafe-html.js';
-    class HtmlPreviewer extends LitElement {
+
+    class MultiSanitizer extends LitElement {
       static styles = css`
     :host {
       display: block;
-      font-family: sans-serif;
+      height: 100vh;
+      font-family: system-ui, sans-serif;
     }
-    .container {
+    .main-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-      padding: 20px;
-      height: 80vh;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      padding: 10px;
+      height: calc(100% - 20px);
     }
-    .column {
+    .input-col {
       display: flex;
       flex-direction: column;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      overflow: hidden;
     }
-    h3 {
-      background: #f4f4f4;
+    .split-col {
+      display: grid;
+      grid-template-rows: 1fr 1fr;
+      gap: 10px;
+    }
+    .panel {
+      display: flex;
+      flex-direction: column;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .label {
+      background: #333;
+      color: #fff;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    textarea, pre, .preview {
+      flex: 1;
       margin: 0;
       padding: 10px;
-      font-size: 14px;
-      border-bottom: 1px solid #ccc;
-    }
-    textarea, pre, .render-area {
-      flex: 1;
-      padding: 15px;
-      margin: 0;
+      overflow: auto;
       border: none;
-      outline: none;
-      overflow-y: auto;
     }
     textarea {
-      resize: none;
+      background: #f9f9f9;
       font-family: monospace;
-      background: #fafafa;
+      resize: none;
     }
     pre {
-      background: #282c34;
-      color: #abb2bf;
-      white-space: pre-wrap;
-      word-break: break-all;
+      font-size: 12px;
+      margin: 0;
+      text-wrap: auto;
     }
-    .render-area {
-      background: white;
+    .preview {
+      border-top: 1px solid #eee;
     }
   `;
 
       static properties = {
-        rawInput: { type: String },
-        sanitizedOutput: { type: String },
-        lastTiming: { type: Number },
+        input: { type: String },
+        domSanitized: { type: String },
+        tokSanitized: { type: String },
+        tookDOM: { type: Number },
+        tookTOK: { type: Number }
       };
 
       constructor() {
         super();
-        this.rawInput = '<h1>Hello World</h1>';
-        this.sanitizedOutput = '';
-        this.lastTiming = 0;
+        this.input = `<h1>Test</h1>
+
+<u>These tags <i> are not </u> balanced </i>
+
+<br><br>
+
+</div> This closing tag is orphaned; this is really bad when rendering on the server, here the browser is doing the magic of rebalancing the DOM.
+
+<br><br>
+
+<img src=x onerror=alert(1)></img> this is a bad closing tag
+
+<br><br>
+`
+        this.domSanitized = '';
+        this.tokSanitized = '';
+        this.tookDOM = 0;
+        this.tookTOK = 0;
       }
 
-      async fetchSanitizedVersion(htmlInput) {
+      async fetchSanitization(htmlInput) {
         try {
           const response = await fetch('/api/sanitize.json', {
             method: 'POST',
@@ -82,56 +109,64 @@
             throw new Error(`Server responded with ${response.status}`);
           }
           const data = await response.json();
-          this.sanitizedOutput = data.Sanitized || '';
-          this.lastTiming = data.TookUs;
-
+          this.domSanitized = data.DOMSanitized;
+          this.tokSanitized = data.TOKSanitized;
+          this.tookDOM = data.TookDOMUs;
+          this.tookTOK = data.TookTOKUs;
         } catch (error) {
           console.error("Sanitization fetch failed:", error);
           this.sanitizedOutput = "Error: Could not retrieve sanitized source.";
         }
       }
 
+
       handleInput(e) {
-        this.rawInput = e.target.value;
-        this.fetchSanitizedVersion(this.rawInput);
+        this.input = e.target.value;
+        this.fetchSanitization(this.input);
       }
 
       firstUpdated() {
-        this.fetchSanitizedVersion(this.rawInput);
+        this.fetchSanitization(this.input);
       }
 
       render() {
         return html`
-      <div class="container">
-        <div class="column">
-          <h3>Input HTML</h3>
-          <textarea 
-            .value="${this.rawInput}" 
-            @input="${this.handleInput}"
-            placeholder="Type HTML here...">
-          </textarea>
-        </div>
+  <div class="main-grid">
+    <div class="panel input-col">
+      <div class="label">Input HTML</div>
+      <textarea .value="${this.input}" @input="${this.handleInput}"></textarea>
+    </div>
 
-        <div class="column">
-          <h3>Sanitized Source (API) Took ${this.lastTiming}μs</h3>
-          <pre><code>${this.sanitizedOutput}</code></pre>
-        </div>
-
-        <div class="column">
-          <h3>DOM Preview</h3>
-          <div class="render-area">
-            ${unsafeHTML(this.rawInput)}
-          </div>
-        </div>
+    <div class="split-col">
+      <div class="panel">
+        <div class="label">DOM-Based Sanitizer (Source) [${this.tookDOM}μs]</div>
+        <pre><code>${this.domSanitized}</code></pre>
       </div>
-    `;
+      <div class="panel">
+        <div class="label">Token-Based Sanitizer (Source) [${this.tookTOK}μs]</div>
+        <pre><code>${this.tokSanitized}</code></pre>
+      </div>
+    </div>
+
+    <div class="split-col">
+      <div class="panel">
+        <div class="label">DOM-Based: Preview</div>
+        <div class="preview">${unsafeHTML(this.domSanitized)}</div>
+      </div>
+      <div class="panel">
+        <div class="label">Token-Based: Preview</div>
+        <div class="preview">${unsafeHTML(this.tokSanitized)}</div>
+      </div>
+    </div>
+  </div>
+  `;
       }
     }
 
-    customElements.define('html-previewer', HtmlPreviewer);
+    customElements.define('multi-sanitizer', MultiSanitizer);
   </script>
 </head>
 
 <body>
-  <html-previewer></html-previewer>
+  <multi-sanitizer></multi-sanitizer>
 </body>

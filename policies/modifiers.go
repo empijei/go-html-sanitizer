@@ -1,6 +1,7 @@
 package policies
 
 import (
+	"maps"
 	"net/url"
 	"strings"
 
@@ -133,8 +134,19 @@ func AddAttributeTarget(p *sanitize.Policy) {
 	p.MergeModify(addTargetMap)
 }
 
-// AddAttributeRel adds the rel="noreferrer nofollow ugc" to tags that support it.
-func AddAttributeRel(p *sanitize.Policy) {
+var defaultRels = []string{"nofollow", "noreferrer", "ugc"}
+
+// AddAttributeRel adds the rel attribute to tags that support it.
+// Passing no arguments adds a safe set of defaults.
+func AddAttributeRel(p *sanitize.Policy, vals ...string) {
+	if len(vals) == 0 {
+		vals = defaultRels
+	}
+	prebuilt := strings.Join(vals, " ")
+	set := map[string]struct{}{}
+	for _, k := range vals {
+		set[k] = struct{}{}
+	}
 	add := func(_ string, attrs *[]html.Attribute) {
 		posRel, posHref := -1, -1
 		for i, attr := range *attrs {
@@ -151,34 +163,25 @@ func AddAttributeRel(p *sanitize.Policy) {
 		if posRel < 0 {
 			(*attrs) = append((*attrs), html.Attribute{
 				Key: "rel",
-				Val: "noreferrer nofollow ugc",
+				Val: prebuilt,
 			})
 			return
 		}
 		rel := &(*attrs)[posRel]
 		if rel.Val == "" {
-			rel.Val = "noreferrer nofollow ugc"
+			rel.Val = prebuilt
 			return
 		}
-		var noref, nofol, ugc bool
+		toAdd := maps.Clone(set)
 		for tok := range strings.FieldsSeq(rel.Val) {
-			switch tok {
-			case "noreferrer":
-				noref = true
-			case "nofollow":
-				nofol = true
-			case "ugc":
-				ugc = true
+			delete(toAdd, tok)
+		}
+		for _, v := range vals {
+			_, missing := toAdd[v]
+			if !missing {
+				continue
 			}
-		}
-		if !noref {
-			rel.Val += " noreferrer"
-		}
-		if !nofol {
-			rel.Val += " nofollow"
-		}
-		if !ugc {
-			rel.Val += " ugc"
+			rel.Val += " " + v
 		}
 	}
 	addRelMap := map[sanitize.TagName][]sanitize.AttributeModifier{

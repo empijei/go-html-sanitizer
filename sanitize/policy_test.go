@@ -12,11 +12,18 @@ import (
 
 func TestPolicy_Sanitize(t *testing.T) {
 	tst.Go(t)
+
+	t.Run("null byte", func(t *testing.T) {
+		p := &sanitize.Policy{}
+		got := p.SanitizeString("\x00 ")
+		tst.Is(` `, got, t)
+	})
 	t.Run("empty allow", func(t *testing.T) {
 		p := &sanitize.Policy{}
-		got := p.SanitizeString(`prefix <a href="javascript:void(0)">link text</a> suffix`)
+		got := p.SanitizeString(`prefix <a href="javascript:void(0)">link text</a> suffix<!--comment-->`)
 		tst.Is(`prefix link text suffix`, got, t)
 	})
+
 	t.Run("all are allowed", func(t *testing.T) {
 		p := &sanitize.Policy{
 			Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{

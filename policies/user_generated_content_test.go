@@ -123,15 +123,15 @@ func TestAttributeModifiers(t *testing.T) {
 	policies.AddAttributeRel(p)
 	policies.AddAttributeTarget(p)
 
-	in := `<a href="https://trusted.dev/1" rel="custom nofollow">text</a>
+	in := `<a href="https://trusted.dev/1" rel="custom noopener noreferrer">text</a>
 <a href="https://trusted.dev/2" target="bad">text</a>
 <iframe src="https://alsotrusted.org/3" sandbox="allow-downloads"></iframe>
 <iframe src="https://alsotrusted.org/4"></iframe>
 <iframe src="https://alsotrusted.org/5" sandbox="allow-forms"></iframe>
 `
 	got := p.SanitizeString(in)
-	want := `<a href="https://trusted.dev/1" rel="custom nofollow noreferrer ugc" target="_blank">text</a>
-<a href="https://trusted.dev/2" target="_blank" rel="noreferrer nofollow ugc">text</a>
+	want := `<a href="https://trusted.dev/1" rel="custom noopener noreferrer nofollow ugc" target="_blank">text</a>
+<a href="https://trusted.dev/2" target="_blank" rel="nofollow noreferrer ugc">text</a>
 <iframe src="https://alsotrusted.org/3" sandbox="allow-forms"></iframe>
 <iframe src="https://alsotrusted.org/4" sandbox="allow-forms"></iframe>
 <iframe src="https://alsotrusted.org/5" sandbox="allow-forms"></iframe>
