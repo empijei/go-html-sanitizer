@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/empijei/go-html-sanitizer/internal/mpool"
 	"golang.org/x/net/html"
 )
 
@@ -167,8 +168,11 @@ func (p *Policy) sanitizeDOM(fr *fragment) error {
 	return nil
 }
 
+var mustAttrPool = mpool.New[AttributeName, AttributeFilter]()
+
 func (*Policy) checkMust(mustAttrs map[AttributeName]AttributeFilter, n *html.Node) (keep bool) {
-	mustAttrs = maps.Clone(mustAttrs)
+	mustAttrs, release := mustAttrPool.Clone(mustAttrs)
+	defer release()
 	for _, attr := range n.Attr {
 		key := getKey(attr)
 		mflt, ok := mustAttrs[key]

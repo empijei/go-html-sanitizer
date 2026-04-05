@@ -6,9 +6,12 @@ import (
 	"strings"
 	"testing"
 
+	_ "embed"
+
 	"github.com/empijei/go-html-sanitizer/policies"
 	"github.com/empijei/go-html-sanitizer/sanitize"
 	"github.com/empijei/tst"
+	"github.com/microcosm-cc/bluemonday"
 )
 
 var inMisc = `<div id="main-content" onclick="stealSessionCookies()">
@@ -92,6 +95,41 @@ func BenchmarkUGC_Sanitize(b *testing.B) {
 		_ = got
 		in.Reset(inMisc)
 	}
+}
+
+//go:embed testdata/html.spec.whatwg.org_index.html
+var massiveHTML string
+
+func BenchmarkWithLargeHTML(b *testing.B) {
+	ugcp := policies.UserGeneratedContent()
+	in := strings.NewReader(massiveHTML)
+	b.SetBytes(1 * 1024 * 1024)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		got := ugcp.Sanitize(io.Discard, in)
+		_ = got
+		in.Reset(massiveHTML)
+	}
+	b.StopTimer()
+	msPerOp := float64(b.Elapsed().Milliseconds()) / float64(b.N)
+	b.ReportMetric(msPerOp, "ms/op")
+}
+
+func BenchmarkBMWithLargeHTML(b *testing.B) {
+	ugcp := bluemonday.UGCPolicy()
+	in := strings.NewReader(massiveHTML)
+	b.SetBytes(1 * 1024 * 1024)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		got := ugcp.SanitizeReaderToWriter(in, io.Discard)
+		_ = got
+		in.Reset(massiveHTML)
+	}
+	b.StopTimer()
+	msPerOp := float64(b.Elapsed().Milliseconds()) / float64(b.N)
+	b.ReportMetric(msPerOp, "ms/op")
 }
 
 func stripWhitespace(input string) string {

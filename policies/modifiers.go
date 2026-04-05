@@ -1,10 +1,10 @@
 package policies
 
 import (
-	"maps"
 	"net/url"
 	"strings"
 
+	"github.com/empijei/go-html-sanitizer/internal/mpool"
 	"github.com/empijei/go-html-sanitizer/sanitize"
 	"golang.org/x/net/html"
 )
@@ -172,7 +172,8 @@ func AddAttributeRel(p *sanitize.Policy, vals ...string) {
 			rel.Val = prebuilt
 			return
 		}
-		toAdd := maps.Clone(set)
+		toAdd, release := relAddPool.Clone(set)
+		defer release()
 		for tok := range strings.FieldsSeq(rel.Val) {
 			delete(toAdd, tok)
 		}
@@ -189,3 +190,5 @@ func AddAttributeRel(p *sanitize.Policy, vals ...string) {
 	}
 	p.MergeModify(addRelMap)
 }
+
+var relAddPool = mpool.New[string, struct{}]()

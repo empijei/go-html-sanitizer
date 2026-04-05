@@ -197,10 +197,7 @@ func nodesEqual(n1, n2 *html.Node) bool {
 	curr1 := n1.FirstChild
 	curr2 := n2.FirstChild
 
-	for {
-		if curr1 == nil && curr2 == nil {
-			break
-		}
+	for curr1 != nil || curr2 != nil {
 		// If one list of children is longer than the other
 		if !nodesEqual(curr1, curr2) {
 			return false
