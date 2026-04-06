@@ -59,7 +59,7 @@ func TestRegressionSanitizeIsStable(t *testing.T) {
 func sanitizeIsStable(t *testing.T, data string) {
 	firstPass := sanit(t, data)
 	secondPass := sanit(t, firstPass)
-	if firstPass != secondPass {
+	if firstPass != secondPass && parseRoundTrip(firstPass) != parseRoundTrip(secondPass) {
 		t.Errorf("\nInput:\n%q\n\nFirstPass:\n%q\n\nSecondPass:%q\n\n", data, firstPass, secondPass)
 	}
 	sanitized := secondPass

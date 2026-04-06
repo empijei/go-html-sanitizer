@@ -5,9 +5,11 @@ import (
 	"testing"
 
 	"github.com/empijei/go-html-sanitizer/match"
+	"github.com/empijei/tst"
 )
 
 func TestRegression(t *testing.T) {
+	tst.Go(t)
 	m := match.Combine(match.Integer(),
 		match.OptSpace(),
 		match.Words("asd", "fgh", "jkl"),

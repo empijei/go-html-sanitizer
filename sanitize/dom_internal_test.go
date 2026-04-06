@@ -10,6 +10,7 @@ import (
 )
 
 func TestRemoveNode(t *testing.T) {
+	tst.Go(t)
 	check := func(t *testing.T, in, want string) {
 		t.Helper()
 		parsed := tst.Do(parseInBody(strings.NewReader(in)))(t)
@@ -118,6 +119,7 @@ func renderStep(sb *strings.Builder, n *html.Node, lvl int) {
 }
 
 func TestFilterAttributes(t *testing.T) {
+	tst.Go(t)
 	doc := `<div id="a" class="b" data-c="d"></div>`
 	parsed := tst.Do(parseInBody(strings.NewReader(doc)))(t)
 	node := parsed.fakeRoot.FirstChild

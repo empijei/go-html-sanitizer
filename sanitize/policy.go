@@ -27,10 +27,10 @@ type (
 	AttributeFilter func(attrValue string) (keep bool)
 
 	// AttributeModifier allows to modify a slice of attributes for a node.
-	AttributeModifier func(tagName string, attrs *[]html.Attribute)
+	AttributeModifier func(tag TagName, attrs *[]html.Attribute)
 
-	// Matcher is a function that matches strings.
-	Matcher = func(s string) (ok bool)
+	// StyleFilter allows to filter style attribute values.
+	StyleFilter func(tag TagName, style StyleToken) (keep bool)
 )
 
 // URIs is a validator that checks whether the given tag/attribute combination is supposed
@@ -64,6 +64,12 @@ type Policy struct {
 	Must map[TagName]map[AttributeName]AttributeFilter
 	// AllowGlobal is like Allow but applies to all tags that are present in Allow.
 	AllowGlobal map[AttributeName]AttributeFilter
+	// AllowStyleAttribute allows to filter style attribute values.
+	//
+	// It works like AllowGlobal for style attributes, but it provides a tokenizer
+	// for CSS2. Users can still provide an Allow or AllowGlobal filter for styles,
+	// but this is more convenient.
+	AllowStyleAttribute StyleFilter
 	// URIs is the policy applied to URIs.
 	//
 	// For an attribute that contains a URI value to be allowed, it needs to both
@@ -171,6 +177,7 @@ func (p *Policy) sanitizeDOM(fr *fragment) error {
 			continue
 		}
 		p.applyModifiers(tagName, n)
+		p.modifyStyles(tagName, n)
 		p.filterAttributes(n, uris, tagName, allowAttrs, mustAttrs)
 		if mustTag && !p.checkMust(mustAttrs, n) {
 			remove = append(remove, n)
@@ -183,6 +190,36 @@ func (p *Policy) sanitizeDOM(fr *fragment) error {
 		}
 	}
 	return nil
+}
+
+func (p *Policy) modifyStyles(tagName string, n *html.Node) {
+	var (
+		style *html.Attribute
+		pos   int
+	)
+	for i, a := range n.Attr {
+		switch {
+		case a.Key == "style":
+			style = &(n.Attr[i])
+			pos = i
+		}
+	}
+	if style == nil {
+		return
+	}
+	style.Val = serializeStyle(func(yield func(StyleToken) bool) {
+		for tok := range tokenizeStyleAttr(style.Val) {
+			if !p.AllowStyleAttribute(tagName, tok) {
+				continue
+			}
+			if !yield(tok) {
+				return
+			}
+		}
+	})
+	if style.Val == "" {
+		n.Attr = slices.Delete(n.Attr, pos, pos+1)
+	}
 }
 
 var mustAttrPool = mpool.New[AttributeName, AttributeFilter]()
@@ -225,6 +262,10 @@ func (p *Policy) filterAttributes(n *html.Node, uris URIs, tagName string, allow
 			return false // duplicate attribute
 		}
 		seen[key] = struct{}{}
+
+		if key == "style" && p.AllowStyleAttribute != nil {
+			return true
+		}
 
 		if v, applies := uris.Validator(tagName, key); applies && !v(attr.Val) {
 			return false

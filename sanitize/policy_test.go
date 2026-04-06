@@ -117,6 +117,30 @@ func TestPolicy_Sanitize(t *testing.T) {
 		got := p.SanitizeString(`prefix <a href="https://foo.bar">link text</a> suffix`)
 		tst.Is(`prefix <a href="https://foo.bar">link text</a> suffix`, got, t)
 	})
+
+	t.Run("styles", func(t *testing.T) {
+		p := &sanitize.Policy{
+			Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
+				"b": nil,
+				"u": nil,
+			},
+			AllowStyleAttribute: func(tag sanitize.TagName, style sanitize.StyleToken) (keep bool) {
+				switch tag {
+				case "u":
+					switch style.Property {
+					case "color":
+						return true
+					default:
+						return false
+					}
+				default:
+					return false
+				}
+			},
+		}
+		got := p.SanitizeString(`<b style="color:red">text</b><u style="color:blue">text</u>`)
+		tst.Is(`<b>text</b><u style="color: blue">text</u>`, got, t)
+	})
 }
 
 func TestPolicy_Relax(t *testing.T) {
