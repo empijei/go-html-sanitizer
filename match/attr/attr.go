@@ -1,4 +1,4 @@
-// Package attr provides matchers for HTML attribute values.
+// Package attr provides matchers for common HTML attribute values.
 package attr
 
 import (

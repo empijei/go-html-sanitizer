@@ -129,6 +129,8 @@ func Example(){
 }
 ```
 
+Please see the full policy documentation [on pkg.go.dev](https://pkg.go.dev/github.com/empijei/go-html-sanitizer/sanitize#Policy).
+
 ## Advanced Features
 
 ### Policy Composition
@@ -169,6 +171,8 @@ p := &sanitize.Policy{
 	},
 }
 ```
+
+Please see the full policy documentation [on pkg.go.dev](https://pkg.go.dev/github.com/empijei/go-html-sanitizer/sanitize#StyleAttribute).
 
 ### Inspection and Error Handling
 

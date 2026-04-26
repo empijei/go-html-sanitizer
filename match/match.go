@@ -1,4 +1,4 @@
-// Package match implements simple, linear matchers for strings.
+// Package match implements simple, linear, greedy matchers for strings.
 //
 // This package is like a simplified version of regexp in go syntax to help debugging
 // and to reduce the chance for errors.

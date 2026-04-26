@@ -1,4 +1,7 @@
 // Package policies contains pre-built policies, ready to use to safely sanitize user input.
+//
+// The simplest way to get started is to use the [UserGeneratedContent] policy and
+// modify it based on your needs.
 package policies
 
 import (
