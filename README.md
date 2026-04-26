@@ -271,3 +271,5 @@ Evaluated on a Apple M4 Pro CPU.
 This module comes with a playground (`go run ./playground`) that allows you to
 experiment with your policy to see how it works, and compare it with tokenizer-based
 sanitizers like bluemonday.
+
+![Screenshot of the playground showing a simple HTML payload](./playground.jpg)

@@ -86,6 +86,48 @@ Text inside an unknown, unallowed tag.
 	tst.Is(want, stripWhitespace(got), t)
 }
 
+func TestUGCGeneratedPayloads(t *testing.T) {
+	tst.Go(t)
+	ugcp := policies.UserGeneratedContent()
+	ugcp.ModifyAttributes = nil
+	ugcp.Must = nil
+
+	t.Run("simple onerror", func(t *testing.T) {
+		got := ugcp.SanitizeString(`<img src=x onerror="alert(1)">`)
+		tst.Is(`<img src="x"/>`, got, t)
+	})
+
+	t.Run("javascript protocol in href", func(t *testing.T) {
+		got := ugcp.SanitizeString(`<a href="javascript:alert(1)">Click me</a>`)
+		tst.Is(`<a>Click me</a>`, got, t)
+	})
+
+	t.Run("script tag removal", func(t *testing.T) {
+		got := ugcp.SanitizeString(`<script>alert(1)</script>`)
+		tst.Is(``, got, t)
+	})
+
+	t.Run("svg onload", func(t *testing.T) {
+		got := ugcp.SanitizeString(`<svg/onload=alert(1)>`)
+		tst.Is(``, got, t)
+	})
+
+	t.Run("encoded javascript protocol", func(t *testing.T) {
+		got := ugcp.SanitizeString(`<a href="&#106;avascript:alert(1)">Click</a>`)
+		tst.Is(`<a>Click</a>`, got, t)
+	})
+
+	t.Run("malformed tag", func(t *testing.T) {
+		got := ugcp.SanitizeString(`<img src=x onerror=alert(1) //`)
+		tst.Is(``, got, t)
+	})
+
+	t.Run("onclick handler", func(t *testing.T) {
+		got := ugcp.SanitizeString(`<div utton onclick="alert(1)">Click</div>)`)
+		tst.Is(`<div>Click</div>)`, got, t)
+	})
+}
+
 func BenchmarkUGC_Sanitize(b *testing.B) {
 	ugcp := policies.UserGeneratedContent()
 	in := strings.NewReader(inMisc)
