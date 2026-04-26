@@ -1,16 +1,50 @@
 # Go HTML sanitizer
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/empijei/go-html-sanitizer.svg)](https://pkg.go.dev/badge/github.com/empijei/go-html-sanitizer)
+[![Go Report Card](https://goreportcard.com/badge/github.com/empijei/go-html-sanitizer)](https://goreportcard.com/report/github.com/empijei/go-html-sanitizer)
+
 A DOM-based Go HTML sanitizer. If you allow users to provide arbitrary inputs that
 you render in your web page, you likely need this sanitizer.
 
-# Overview
+## Table of Contents
+
+- [Overview](#overview)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Safe Markup Allowlist](#safe-markup-allowlist)
+  - [Strict Mode](#strict-mode)
+  - [Custom Policies](#custom-policies)
+- [Advanced Features](#advanced-features)
+  - [Policy Composition](#policy-composition)
+  - [Style Attribute Sanitization](#style-attribute-sanitization)
+  - [Inspection and Error Handling](#inspection-and-error-handling)
+- [Threat Model and Security](#threat-model-and-security)
+- [Comparison](#comparison)
+  - [Features](#features)
+  - [Performance](#performance)
+- [Playground](#playground)
+
+## Overview
 
 This sanitizer allows to declare policies that mutate user-provided HTML into trusted
 markup that can safely be embedded into a web page.
 
+Unlike other available sanitizers, it understands the DOM instead of just tokenizing
+HTML as a string. This means that potentially broken or unbalanced inputs will still
+yield correct HTML as an output, ruling out a broader spectrum of attack vectors due
+to parsing differentials or early tag termination.
+
+## Installation
+
+```bash
+go get github.com/empijei/go-html-sanitizer
+```
+
+## Usage
+
 The simplest way to use it is to leverage the builtin policies.
 
-## Safe Markup Allowlist
+### Safe Markup Allowlist
 
 ```go
 import "github.com/empijei/go-html-sanitizer/policies"
@@ -23,23 +57,21 @@ import "github.com/empijei/go-html-sanitizer/policies"
 var ugcp = policies.UserGeneratedContent()
 
 func Sanitize(untrusted string)(trusted string){
-	return ugcp.SanitizeString(inMisc)
+	return ugcp.SanitizeString(untrusted)
 }
 ```
 
 Example user-generated content policy effects:
 
-| Title                                                                   | Input                                                                                                   | Output                                                                                              |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Removes event handlers, adds privacy attributes                         | `<img src=x onerror=alert(1)></img>`                                                                    | `<img src="x" crossorigin="anonymous"/>`                                                            |
-| Allows harmless tags                                                    | `<h1>Test</h1>`                                                                                         | `<h1>Test</h1>`                                                                                     |
-| Balances tags                                                           | `<u>These tags <i> are not </u> balanced </i>`                                                          | `<u>These tags <i> are not </i></u><i> balanced </i>`                                               |
-| Removes orphaned tags                                                   | `</div> This closing tag is orphaned...`                                                                | ` This closing tag is orphaned...`                                                                  |
-| Strips duplicated attributes, adds security, privacy and SEO attributes | `<A href="https://usethis.com" href="malicious" onclick=alert(1)>duplicated attributes are invalid</a>` | `<a href="https://usethis.com" rel="nofollow noreferrer ugc">duplicated attributes are invalid</a>` |
+| Title                                           | Input                                          | Output                                                     |
+| :---------------------------------------------- | :--------------------------------------------- | :--------------------------------------------------------- |
+| Removes event handlers, adds privacy attributes | `<img src=x onerror=alert(1)></img>`           | `<img src="x" crossorigin="anonymous"/>`                   |
+| Allows harmless tags                            | `<h1>Test</h1>`                                | `<h1>Test</h1>`                                            |
+| Balances tags                                   | `<u>These tags <i> are not </u> balanced </i>` | `<u>These tags <i> are not </i></u><i> balanced </i>`      |
+| Removes orphaned tags                           | `</div> This closing tag is orphaned...`       | ` This closing tag is orphaned...`                         |
+| Strips duplicated attributes                    | `<a href="a" href="b">duplicated</a>`          | `<a href="a" rel="nofollow noreferrer ugc">duplicated</a>` |
 
-It additionally removes all HTML comments, directives, invalid tags, etc...
-
-## Strict Mode
+### Strict Mode
 
 The empty policy is the safest policy, and it blocks all tags and all markup:
 
@@ -57,18 +89,15 @@ func Example(){
 }
 ```
 
-## Custom Policies
+### Custom Policies
 
-This module aims to provide a safe and simple to use library to sanitize HTML, but
-advanced users might specify very expressive policies via the available API, which supports:
+Advanced users might specify very expressive policies via the available API, which supports:
 
 - custom URI sanitizers
 - `style` attributes tokenization and allowlisting
 - attribute list modifiers
 - tag removers and replacers
 - strict allowlists for tags that must appear with specific attributes
-
-it also comes with its own library of greedy, fast matchers to avoid regular-expression gotchas.
 
 ```go
 import "github.com/empijei/go-html-sanitizer/sanitize"
@@ -80,11 +109,13 @@ var policy = &sanitize.Policy{
 			"rel": nil, // Allow a.rel
 		},
 	},
+	Must: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
+		"a": {"href": nil}, // a is only allowed if it has an href attribute.
+	},
 	URIs: policies.NewURIs(), // Allow safe URIs
 	ModifyAttributes: map[sanitize.TagName][]sanitize.AttributeModifier{
 		"a": {func(_ string, attrs *[]html.Attribute) {
 			// Always add a.rel with value of nofollow.
-			// To see how to only add when not present please read below.
 			*attrs = append(*attrs, html.Attribute{
 				Key: "rel", Val: "nofollow",
 			})
@@ -98,43 +129,97 @@ func Example(){
 }
 ```
 
-Please consider taking a look at how the user generated content policy is implemented
-and the policy tests to see the full API in action.
+## Advanced Features
 
-# Why use this module
+### Policy Composition
 
-Unlike other available sanitizers, it understands the DOM instead of just tokenizing
-HTML as a string. This means that potentially broken or unbalanced inputs will still
-yield correct HTML as an output, ruling out a broader spectrum of attack vectors due
-to parsing differentials or early tag termination.
+Policies can be combined using `Relax` (OR) and `Restrict` (AND) operations:
 
-# Comparison
+```go
+// Allow what is allowed in either policy
+policyA.Relax(policyB)
 
-Since bluemonday is the most widely used HTML sanitizer, here is comparison of features
-and performance.
+// Allow only what is allowed in both policies
+policyA.Restrict(policyB)
+```
 
-## Features
+### Style Attribute Sanitization
 
-| Feature                                                      | BlueMonday | Sanitize |
-| ------------------------------------------------------------ | ---------- | -------- |
-| Customizable policies                                        | ✅         | ✅       |
-| Strips harmful attributes                                    | ✅         | ✅       |
-| Strips harmful tags                                          | ✅         | ✅       |
-| Adds security and privacy attributes                         | ✅         | ✅       |
-| Customizable attribute modifiers                             | ❌         | ✅       |
-| Balances tags                                                | ❌         | ✅       |
-| Removes spurious tags                                        | ❌         | ✅       |
-| Removes duplicated attributes                                | ❌         | ✅       |
-| Removes invalid HTML tags (e.g. void elements with children) | ❌         | ✅       |
-| Fast, unambiguous matchers                                   | ❌         | ✅       |
-| Arbitrary Go code for policies                               | ❌         | ✅       |
-| Style attribute tokenizer                                    | ❌         | ✅       |
+This library provides a unique `StyleAttribute` modifier that tokenizes CSS and allows fine-grained filtering:
 
-## Performance
+```go
+myStyleModifier := sanitize.StyleAttribute(func(tag sanitize.TagName, style sanitize.StyleToken) (keep bool) {
+    if style.Important {
+        return false // Disallow !important
+    }
+    switch style.Property {
+    case "color", "font-size":
+        return true // Only allow specific properties
+    }
+    return false
+})
 
-While Sanitize offers a safer, more customizable API that performs better with medium
+p := &sanitize.Policy{
+	Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
+		sanitize.AllTags: {"style": nil}, // Allow all style attributes.
+	},
+	ModifyAttributes: map[sanitize.TagName][]sanitize.AttributeModifier{
+        // Modify all style attributes with our modifier.
+		sanitize.AllTags: { myStyleModifier },
+	},
+}
+```
+
+### Inspection and Error Handling
+
+By default, for security reasons, the sanitizer never returns an error and never panics,
+even if user-provided modifiers or matchers panic.
+
+If something goes wrong it returns the empty string.
+
+If you need to know if errors occurred during sanitization:
+
+```go
+err := policy.SanitizeInspect(dst, src, func(msg string, err error) {
+    log.Printf("Sanitizer message: %s, error: %v", msg, err)
+})
+```
+
+## Threat Model and Security
+
+This library is designed to protect against Cross-Site Scripting (XSS) and other HTML-based attacks by:
+
+1.  **DOM-based Parsing**: It uses `golang.org/x/net/html` to parse HTML into a DOM tree. This eliminates "mutation XSS" (mXSS) caused by differences between how a sanitizer and a browser parse HTML or content injection due to unbalanced tags.
+2.  **Strict Allowlisting**: By default, everything is forbidden. You must explicitly allow tags and attributes.
+3.  **URI Validation**: It provides helpers to ensure `href`, `src`, and other URI-containing attributes use safe protocols (e.g., forbidding `javascript:` or `http:`).
+4.  **Attribute Normalization**: It removes duplicated attributes and can automatically add security-hardening attributes like `rel="noopener"`.
+
+**Note**: This library does not protect against Denial of Service (DoS) attacks via extremely large inputs. You should always limit the size of the input you pass to the sanitizer.
+
+## Comparison
+
+### Features
+
+| Feature                              | BlueMonday | Sanitize |
+| :----------------------------------- | :--------: | :------: |
+| Customizable policies                |     ✅     |    ✅    |
+| Strips harmful attributes            |     ✅     |    ✅    |
+| Strips harmful tags                  |     ✅     |    ✅    |
+| Adds security and privacy attributes |     ✅     |    ✅    |
+| Customizable attribute modifiers     |     ❌     |    ✅    |
+| Balances tags                        |     ❌     |    ✅    |
+| Removes spurious tags                |     ❌     |    ✅    |
+| Removes duplicated attributes        |     ❌     |    ✅    |
+| Removes invalid HTML tags            |     ❌     |    ✅    |
+| Fast, unambiguous matchers           |     ❌     |    ✅    |
+| Arbitrary Go code for policies       |     ❌     |    ✅    |
+| Style attribute tokenizer            |     ❌     |    ✅    |
+
+### Performance
+
+**Summary**: While Sanitize offers a safer, more customizable API that performs better with medium
 and large inputs, bluemonday is slightly faster and uses slightly less memory
-(albeit with more allocations) with small inputs.
+(albeit with more allocations) with very small inputs.
 
 Evaluated on a Apple M4 Pro CPU.
 
@@ -146,38 +231,39 @@ Evaluated on a Apple M4 Pro CPU.
 
 ### Time per operation
 
-| Input   | BlueMonday  | Sanitize    | Sanitize VS BlueMonday |
-| ------- | ----------- | ----------- | ---------------------- |
-| Large   | 215.6m ± 0% | 190.9m ± 1% | -11.46% (p=0.000 n=10) |
-| Medium  | 149.9µ ± 1% | 136.3µ ± 1% | -9.07% (p=0.000 n=10)  |
-| Small   | 12.33µ ± 1% | 12.78µ ± 1% | +3.62% (p=0.000 n=10)  |
-| geomean | 735.9µ      | 692.7µ      | -5.86%                 |
+~6% Faster (slightly slower on small inputs).
+
+| Input   | BlueMonday | Sanitize | Sanitize VS BlueMonday |
+| ------- | ---------- | -------- | ---------------------- |
+| Large   | 215.6m     | 190.9m   | -11.46%                |
+| Medium  | 149.9µ     | 136.3µ   | -9.07%                 |
+| Small   | 12.33µ     | 12.78µ   | +3.62%                 |
+| geomean | 735.9µ     | 692.7µ   | -5.86%                 |
 
 ### Bytes allocated per operation
 
-| Input   | BlueMonday   | Sanitize      | Sanitize VS BlueMonday |
-| ------- | ------------ | ------------- | ---------------------- |
-| Large   | 145.8Mi ± 0% | 166.3Mi ± 0%  | +14.03% (p=0.000 n=10) |
-| Medium  | 120.5Ki ± 0% | 145.0Ki ± 0%  | +20.37% (p=0.000 n=10) |
-| Small   | 9.516Ki ± 0% | 18.167Ki ± 0% | +90.92% (p=0.000 n=10) |
-| geomean | 555.3Ki      | 765.5Ki       | +37.87%                |
+~38% More memory used (higher cost on small inputs, less impactful on large inputs).
+
+| Input   | BlueMonday | Sanitize | Sanitize VS BlueMonday |
+| ------- | ---------- | -------- | ---------------------- |
+| Large   | 145.8Mi    | 166.3Mi  | +14.03%                |
+| Medium  | 120.5Ki    | 145.0Ki  | +20.37%                |
+| Small   | 9.516Ki    | 18.167Ki | +90.92%                |
+| geomean | 555.3Ki    | 765.5Ki  | +37.87%                |
 
 ### Allocations per operation
 
-| Input          | BlueMonday  | Sanitize    | Sanitize VS BlueMonday |
-| -------------- | ----------- | ----------- | ---------------------- |
-| Real/large-14  | 5.067M ± 0% | 1.901M ± 0% | -62.48% (p=0.000 n=10) |
-| Real/medium-14 | 3.370k ± 0% | 1.382k ± 0% | -58.99% (p=0.000 n=10) |
-| Real/small-14  | 304.0 ± 0%  | 176.0 ± 0%  | -42.11% (p=0.000 n=10) |
-| geomean        | 17.32k      | 7.733k      | -55.34%                |
+~55% Fewer allocations (always allocates fewer times).
+
+| Input   | BlueMonday | Sanitize | Sanitize VS BlueMonday |
+| ------- | ---------- | -------- | ---------------------- |
+| Large   | 5.067M     | 1.901M   | -62.48%                |
+| Medium  | 3.370k     | 1.382k   | -58.99%                |
+| Small   | 304.0      | 176.0    | -42.11%                |
+| geomean | 17.32k     | 7.733k   | -55.34%                |
 
 ## Playground
 
 This module comes with a playground (`go run ./playground`) that allows you to
 experiment with your policy to see how it works, and compare it with tokenizer-based
 sanitizers like bluemonday.
-
-# Notes
-
-As much as this sanitizer is fast and efficient, it's still **ALWAYS** suggested to
-limit user input size to prevent DoS attacks.
