@@ -47,9 +47,9 @@ func TestPolicy_Sanitize(t *testing.T) {
 		p := &sanitize.Policy{
 			Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
 				"span": nil,
-			},
-			AllowGlobal: map[sanitize.AttributeName]sanitize.AttributeFilter{
-				"lang": func(attrValue string) (keep bool) { return len(attrValue) >= 2 },
+				sanitize.AllTags: {
+					"lang": func(attrValue string) (keep bool) { return len(attrValue) >= 2 },
+				},
 			},
 		}
 		got := p.SanitizeString(`normal text <span lang="en">english text</span> <span lang="">bad lang</span>`)
@@ -124,18 +124,22 @@ func TestPolicy_Sanitize(t *testing.T) {
 				"b": nil,
 				"u": nil,
 			},
-			AllowStyleAttribute: func(tag sanitize.TagName, style sanitize.StyleToken) (keep bool) {
-				switch tag {
-				case "u":
-					switch style.Property {
-					case "color":
-						return true
-					default:
-						return false
-					}
-				default:
-					return false
-				}
+			ModifyAttributes: map[sanitize.TagName][]sanitize.AttributeModifier{
+				sanitize.AllTags: {
+					sanitize.StyleAttribute(func(tag sanitize.TagName, style sanitize.StyleToken) (keep bool) {
+						switch tag {
+						case "u", "i":
+							switch style.Property {
+							case "color":
+								return true
+							default:
+								return false
+							}
+						default:
+							return false
+						}
+					}),
+				},
 			},
 		}
 		got := p.SanitizeString(`<b style="color:red">text</b><u style="color:blue">text</u>`)
@@ -210,11 +214,17 @@ func TestPolicy_Relax(t *testing.T) {
 
 	t.Run("allow global merge", func(t *testing.T) {
 		p1 := &sanitize.Policy{
-			Allow:       map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{"span": nil},
-			AllowGlobal: map[sanitize.AttributeName]sanitize.AttributeFilter{"class": func(v string) bool { return v == "red" }},
+			Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
+				"span": nil,
+				sanitize.AllTags: {
+					"class": func(v string) bool { return v == "red" },
+				},
+			},
 		}
 		p2 := &sanitize.Policy{
-			AllowGlobal: map[sanitize.AttributeName]sanitize.AttributeFilter{"class": func(v string) bool { return v == "blue" }},
+			Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
+				sanitize.AllTags: {"class": func(v string) bool { return v == "blue" }},
+			},
 		}
 		p1.Relax(p2)
 		tst.Is(`<span class="red">red</span>`, p1.SanitizeString(`<span class="red">red</span>`), t)
@@ -299,12 +309,16 @@ func TestPolicy_Restrict(t *testing.T) {
 
 	t.Run("allow global intersection", func(t *testing.T) {
 		p1 := &sanitize.Policy{
-			Allow:       map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{"span": nil},
-			AllowGlobal: map[sanitize.AttributeName]sanitize.AttributeFilter{"class": func(v string) bool { return strings.HasPrefix(v, "text-") }},
+			Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
+				"span":           nil,
+				sanitize.AllTags: {"class": func(v string) bool { return strings.HasPrefix(v, "text-") }},
+			},
 		}
 		p2 := &sanitize.Policy{
-			Allow:       map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{"span": nil},
-			AllowGlobal: map[sanitize.AttributeName]sanitize.AttributeFilter{"class": func(v string) bool { return strings.HasSuffix(v, "-red") }},
+			Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
+				"span":           nil,
+				sanitize.AllTags: {"class": func(v string) bool { return strings.HasSuffix(v, "-red") }},
+			},
 		}
 		p1.Restrict(p2)
 		tst.Is(`<span class="text-red">red</span>`, p1.SanitizeString(`<span class="text-red">red</span>`), t)

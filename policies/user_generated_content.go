@@ -117,14 +117,13 @@ func UserGeneratedContent() *sanitize.Policy {
 		},
 		URIs:             NewURIs(),
 		ModifyAttributes: map[sanitize.TagName][]sanitize.AttributeModifier{},
-		AllowGlobal:      map[sanitize.AttributeName]sanitize.AttributeFilter{},
 		Remove:           map[sanitize.TagName]string{"script": "", "style": ""},
 	}
 
 	maps.Insert(p.Allow, maps.All(AllowLists))
 	maps.Insert(p.Allow, maps.All(AllowImages))
 	maps.Insert(p.Allow, maps.All(AllowTables))
-	maps.Insert(p.AllowGlobal, maps.All(AllowGlobalStandard))
+	maps.Insert(p.Allow, maps.All(AllowGlobalStandard))
 
 	AddAttributeCrossOrigin(p)
 	AddAttributeRel(p)
@@ -221,10 +220,12 @@ var (
 	}
 
 	// AllowGlobalStandard is a map to insert into a policy AllowGlobal to enable basic attributes.
-	AllowGlobalStandard = map[sanitize.AttributeName]sanitize.AttributeFilter{
-		"dir":   attr.Dir,
-		"lang":  attr.Lang,
-		"id":    attr.ID,
-		"title": attr.FreeText,
+	AllowGlobalStandard = map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
+		sanitize.AllTags: {
+			"dir":   attr.Dir,
+			"lang":  attr.Lang,
+			"id":    attr.ID,
+			"title": attr.FreeText,
+		},
 	}
 )

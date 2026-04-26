@@ -2,10 +2,91 @@ package sanitize
 
 import (
 	"iter"
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"golang.org/x/net/html"
 )
+
+// StyleFilter allows to filter style attribute values.
+type StyleFilter func(tag TagName, style StyleToken) (keep bool)
+
+// StyleAttribute is a helper to create attribute modifiers that sanitize the "style"
+// attribute, scanning each token and allowing for fine-grained filtering on style
+// properties.
+//
+// # Full Example: Allow specific properties on specific tags.
+//
+//	p := &sanitize.Policy{
+//		ModifyAttributes: map[sanitize.TagName][]sanitize.AttributeModifier{
+//			sanitize.AllTags: {
+//				sanitize.StyleAttribute(func(tag sanitize.TagName, style sanitize.StyleToken) (keep bool) {
+//					switch tag {
+//					case "u", "b":
+//					// Allow "color" on tag "u" and "b".
+//						switch style.Property {
+//						case "color":
+//							return true
+//						default:
+//							return false
+//						}
+//					default:
+//						return false
+//					}
+//				}),
+//			},
+//		},
+//	}
+//
+// # Example: Allow a property on all tags, but only if not important.
+//
+//	p := &sanitize.Policy{
+//		ModifyAttributes: map[sanitize.TagName][]sanitize.AttributeModifier{
+//			sanitize.AllTags: {
+//				sanitize.StyleAttribute(func(tag sanitize.TagName, style sanitize.StyleToken) (keep bool) {
+//					switch style.Property {
+//					case "font-size":
+//						return !style.Important
+//					}
+//					return false
+//				}),
+//			},
+//		},
+//	}
+func StyleAttribute(sf StyleFilter) AttributeModifier {
+	return func(tag TagName, attrs *[]html.Attribute) {
+		var (
+			style *html.Attribute
+			pos   int
+		)
+		for i, a := range *attrs {
+			switch {
+			case a.Key == "style":
+				style = &((*attrs)[i])
+				pos = i
+			}
+		}
+		if style == nil {
+			return
+		}
+
+		style.Val = serializeStyle(func(yield func(StyleToken) bool) {
+			for tok := range tokenizeStyleAttr(style.Val) {
+				if !sf(tag, tok) {
+					continue
+				}
+				if !yield(tok) {
+					return
+				}
+			}
+		})
+		if style.Val == "" {
+			(*attrs) = slices.Delete((*attrs), pos, pos+1)
+		}
+	}
+}
 
 /*
 Implementaton of https://drafts.csswg.org/css-style-attr/#syntax and https://www.w3.org/TR/CSS2/grammar.html
@@ -31,9 +112,9 @@ The forward-compatible parsing rules are such that a declaration following an at
 
 // StyleToken is a token obtained from parsing a style attribute.
 type StyleToken struct {
-	// Property is the property key.
+	// Property is the property key, lowercased, trimmed.
 	Property string
-	// Expression is the property value.
+	// Expression is the property value, trimmed.
 	Expression string
 	// Important reports whether the expression was marked to be important.
 	Important bool

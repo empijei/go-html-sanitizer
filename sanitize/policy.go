@@ -28,9 +28,11 @@ type (
 
 	// AttributeModifier allows to modify a slice of attributes for a node.
 	AttributeModifier func(tag TagName, attrs *[]html.Attribute)
+)
 
-	// StyleFilter allows to filter style attribute values.
-	StyleFilter func(tag TagName, style StyleToken) (keep bool)
+const (
+	// AllTags allows to specify rules that apply to all tags.
+	AllTags TagName = "*"
 )
 
 // URIs is a validator that checks whether the given tag/attribute combination is supposed
@@ -55,6 +57,8 @@ type Policy struct {
 	//
 	// A nil AttributeFilter is treated like an allow-all.
 	//
+	// The special value [AllTags] can be used to allow attributes on all tags.
+	//
 	// Rules are applied after modifiers.
 	Allow map[TagName]map[AttributeName]AttributeFilter
 	// Must is like Allow, but the attributes are mandatory.
@@ -62,14 +66,6 @@ type Policy struct {
 	// Tags that appear here are implicitly allowed if and only if they have all
 	// the attributes specified.
 	Must map[TagName]map[AttributeName]AttributeFilter
-	// AllowGlobal is like Allow but applies to all tags that are present in Allow.
-	AllowGlobal map[AttributeName]AttributeFilter
-	// AllowStyleAttribute allows to filter style attribute values.
-	//
-	// It works like AllowGlobal for style attributes, but it provides a tokenizer
-	// for CSS2. Users can still provide an Allow or AllowGlobal filter for styles,
-	// but this is more convenient.
-	AllowStyleAttribute StyleFilter
 	// URIs is the policy applied to URIs.
 	//
 	// For an attribute that contains a URI value to be allowed, it needs to both
@@ -153,6 +149,8 @@ func (p *Policy) sanitizeDOM(fr *fragment) error {
 	if uris == nil {
 		uris = defaultURIPolicy
 	}
+	globAllow := p.Allow[AllTags]
+	globModif := p.ModifyAttributes[AllTags]
 	for n := range fr.fakeRoot.Descendants() {
 		switch n.Type {
 		case html.TextNode:
@@ -176,9 +174,8 @@ func (p *Policy) sanitizeDOM(fr *fragment) error {
 			remove = append(remove, n)
 			continue
 		}
-		p.applyModifiers(tagName, n)
-		p.modifyStyles(tagName, n)
-		p.filterAttributes(n, uris, tagName, allowAttrs, mustAttrs)
+		p.applyModifiers(globModif, tagName, n)
+		p.filterAttributes(n, uris, tagName, globAllow, allowAttrs, mustAttrs)
 		if mustTag && !p.checkMust(mustAttrs, n) {
 			remove = append(remove, n)
 			continue
@@ -190,36 +187,6 @@ func (p *Policy) sanitizeDOM(fr *fragment) error {
 		}
 	}
 	return nil
-}
-
-func (p *Policy) modifyStyles(tagName string, n *html.Node) {
-	var (
-		style *html.Attribute
-		pos   int
-	)
-	for i, a := range n.Attr {
-		switch {
-		case a.Key == "style":
-			style = &(n.Attr[i])
-			pos = i
-		}
-	}
-	if style == nil {
-		return
-	}
-	style.Val = serializeStyle(func(yield func(StyleToken) bool) {
-		for tok := range tokenizeStyleAttr(style.Val) {
-			if !p.AllowStyleAttribute(tagName, tok) {
-				continue
-			}
-			if !yield(tok) {
-				return
-			}
-		}
-	})
-	if style.Val == "" {
-		n.Attr = slices.Delete(n.Attr, pos, pos+1)
-	}
 }
 
 var mustAttrPool = mpool.New[AttributeName, AttributeFilter]()
@@ -242,7 +209,10 @@ func (*Policy) checkMust(mustAttrs map[AttributeName]AttributeFilter, n *html.No
 	return len(mustAttrs) == 0 // All checks passed
 }
 
-func (p *Policy) applyModifiers(tagName string, n *html.Node) {
+func (p *Policy) applyModifiers(globModif []AttributeModifier, tagName string, n *html.Node) {
+	for _, mod := range globModif {
+		mod(tagName, &n.Attr)
+	}
 	mods, ok := p.ModifyAttributes[tagName]
 	if ok {
 		for _, mod := range mods {
@@ -253,7 +223,7 @@ func (p *Policy) applyModifiers(tagName string, n *html.Node) {
 
 var seenPool = mpool.New[string, struct{}]()
 
-func (p *Policy) filterAttributes(n *html.Node, uris URIs, tagName string, allowAttrs, mustAttrs map[AttributeName]AttributeFilter) {
+func (p *Policy) filterAttributes(n *html.Node, uris URIs, tagName string, globAllow, allowAttrs, mustAttrs map[AttributeName]AttributeFilter) {
 	seen, release := seenPool.Get()
 	defer release()
 	filterAttributes(n, func(_ *html.Node, attr html.Attribute) (keep bool) {
@@ -263,10 +233,6 @@ func (p *Policy) filterAttributes(n *html.Node, uris URIs, tagName string, allow
 		}
 		seen[key] = struct{}{}
 
-		if key == "style" && p.AllowStyleAttribute != nil {
-			return true
-		}
-
 		if v, applies := uris.Validator(tagName, key); applies && !v(attr.Val) {
 			return false
 		}
@@ -274,7 +240,7 @@ func (p *Policy) filterAttributes(n *html.Node, uris URIs, tagName string, allow
 		for _, allow := range []map[AttributeName]AttributeFilter{
 			allowAttrs,
 			mustAttrs,
-			p.AllowGlobal,
+			globAllow,
 		} {
 			flt, ok := allow[key]
 			if ok && (flt == nil || flt(attr.Val)) {
@@ -308,8 +274,6 @@ func (p *Policy) Relax(other *Policy) {
 		}
 		orAttrMaps(pAttributeMap, otherAttributeMap)
 	}
-
-	orAttrMaps(p.AllowGlobal, other.AllowGlobal)
 
 	p.MergeModify(other.ModifyAttributes)
 
@@ -359,8 +323,6 @@ func (p *Policy) Restrict(other *Policy) {
 		}
 		delete(p.Allow, tag)
 	}
-
-	andAttrMaps(p.AllowGlobal, other.AllowGlobal)
 
 	p.MergeModify(other.ModifyAttributes)
 

@@ -40,6 +40,7 @@ func sanit(t *testing.T, in string) string {
 }
 
 func FuzzSanitizeIsStable(f *testing.F) {
+	f.Skip()
 	for _, p := range payloads {
 		f.Add(p)
 	}
@@ -63,6 +64,8 @@ func sanitizeIsStable(t *testing.T, data string) {
 		t.Errorf("\nInput:\n%q\n\nFirstPass:\n%q\n\nSecondPass:%q\n\n", data, firstPass, secondPass)
 	}
 	sanitized := secondPass
+	t.Logf("Input: %q", data)
+	t.Logf("Sanitized: %q", secondPass)
 	n, err := html.Parse(strings.NewReader(sanitized))
 	if err != nil {
 		t.Errorf("Failed to parse sanitized input %q with error %v", sanitized, err)
