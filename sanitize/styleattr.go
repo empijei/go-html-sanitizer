@@ -20,40 +20,41 @@ type StyleFilter func(tag TagName, style StyleToken) (keep bool)
 // # Full Example: Allow specific properties on specific tags.
 //
 //	p := &sanitize.Policy{
+//		Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
+//			"b":              nil,
+//			"u":              nil,
+//			sanitize.AllTags: {"style": nil}, // "style" must be allowed for this to work.
+//			// [...] Rest of the policy
+//		},
 //		ModifyAttributes: map[sanitize.TagName][]sanitize.AttributeModifier{
 //			sanitize.AllTags: {
 //				sanitize.StyleAttribute(func(tag sanitize.TagName, style sanitize.StyleToken) (keep bool) {
 //					switch tag {
 //					case "u", "b":
-//					// Allow "color" on tag "u" and "b".
+//						// Allow "color" and "font-size" on tag "u" and "b".
 //						switch style.Property {
-//						case "color":
+//						case "color", "font-size":
 //							return true
-//						default:
-//							return false
 //						}
-//					default:
-//						return false
-//					}
-//				}),
-//			},
-//		},
-//	}
-//
-// # Example: Allow a property on all tags, but only if not important.
-//
-//	p := &sanitize.Policy{
-//		ModifyAttributes: map[sanitize.TagName][]sanitize.AttributeModifier{
-//			sanitize.AllTags: {
-//				sanitize.StyleAttribute(func(tag sanitize.TagName, style sanitize.StyleToken) (keep bool) {
-//					switch style.Property {
-//					case "font-size":
-//						return !style.Important
 //					}
 //					return false
 //				}),
 //			},
 //		},
+//	}
+//
+// # Example: Allow properties on all tags, but only if not important.
+//
+//	sanitize.StyleAttribute(func(tag sanitize.TagName, style sanitize.StyleToken) (keep bool) {
+//		if style.Important {
+//			return false
+//		}
+//		switch style.Property {
+//		case "font-size":
+//			return true
+//		// [...] Rest of the allowlist.
+//		}
+//		return false
 //	}
 func StyleAttribute(sf StyleFilter) AttributeModifier {
 	return func(tag TagName, attrs *[]html.Attribute) {

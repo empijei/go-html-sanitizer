@@ -121,29 +121,52 @@ func TestPolicy_Sanitize(t *testing.T) {
 	t.Run("styles", func(t *testing.T) {
 		p := &sanitize.Policy{
 			Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
-				"b": nil,
-				"u": nil,
+				"b":              nil,
+				"u":              nil,
+				sanitize.AllTags: {"style": nil},
 			},
 			ModifyAttributes: map[sanitize.TagName][]sanitize.AttributeModifier{
 				sanitize.AllTags: {
 					sanitize.StyleAttribute(func(tag sanitize.TagName, style sanitize.StyleToken) (keep bool) {
 						switch tag {
 						case "u", "i":
-							switch style.Property {
-							case "color":
-								return true
-							default:
-								return false
-							}
-						default:
-							return false
+							return style.Property == "color"
 						}
+						return false
 					}),
 				},
 			},
 		}
 		got := p.SanitizeString(`<b style="color:red">text</b><u style="color:blue">text</u>`)
 		tst.Is(`<b>text</b><u style="color: blue">text</u>`, got, t)
+	})
+
+	t.Run("styles example", func(t *testing.T) {
+		p := &sanitize.Policy{
+			Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
+				"b":              nil,
+				"u":              nil,
+				sanitize.AllTags: {"style": nil}, // "style" must be allowed for this to work.
+				// [...] Rest of the policy
+			},
+			ModifyAttributes: map[sanitize.TagName][]sanitize.AttributeModifier{
+				sanitize.AllTags: {
+					sanitize.StyleAttribute(func(tag sanitize.TagName, style sanitize.StyleToken) (keep bool) {
+						switch tag {
+						case "u", "b":
+							// Allow "color" and "font-size" on tag "u" and "b".
+							switch style.Property {
+							case "color", "font-size":
+								return true
+							}
+						}
+						return false
+					}),
+				},
+			},
+		}
+		got := p.SanitizeString(`<b style="color:red">text</b><u style="color:blue">text</u>`)
+		tst.Is(`<b style="color: red">text</b><u style="color: blue">text</u>`, got, t)
 	})
 }
 
