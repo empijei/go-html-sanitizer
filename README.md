@@ -15,7 +15,7 @@ you render in your web page, you likely need this sanitizer.
   - [Strict Mode](#strict-mode)
   - [Custom Policies](#custom-policies)
 - [Advanced Features](#advanced-features)
-  - [Policy Composition](#policy-composition)
+  - [Composition](#composition)
   - [Style Attribute Sanitization](#style-attribute-sanitization)
   - [Inspection and Error Handling](#inspection-and-error-handling)
 - [Threat Model and Security](#threat-model-and-security)
