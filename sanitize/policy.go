@@ -26,8 +26,14 @@ type (
 	// attribute.
 	AttributeFilter func(attrValue string) (keep bool)
 
+	// Filter matches specific tags and attributes.
+	Filter map[TagName]map[AttributeName]AttributeFilter
+
 	// AttributeModifier allows to modify a slice of attributes for a node.
 	AttributeModifier func(tag TagName, attrs *[]html.Attribute)
+
+	// Modifier allows to modify tag attributes.
+	Modifier map[TagName][]AttributeModifier
 )
 
 const (
@@ -60,12 +66,12 @@ type Policy struct {
 	// The special value [AllTags] can be used to allow attributes on all tags.
 	//
 	// Rules are applied after modifiers.
-	Allow map[TagName]map[AttributeName]AttributeFilter
+	Allow Filter
 	// Must is like Allow, but the attributes are mandatory.
 	//
 	// Tags that appear here are implicitly allowed if and only if they have all
 	// the attributes specified.
-	Must map[TagName]map[AttributeName]AttributeFilter
+	Must Filter
 	// URIs is the policy applied to URIs.
 	//
 	// For an attribute that contains a URI value to be allowed, it needs to both
@@ -79,7 +85,7 @@ type Policy struct {
 	// need to still be valid according to the policy.
 	//
 	// Modifers MUST NOT be nil.
-	ModifyAttributes map[TagName][]AttributeModifier
+	ModifyAttributes Modifier
 	// Remove allows to optionally specify tags that should be completely removed,
 	// including all their children.
 	//
@@ -259,29 +265,19 @@ func getKey(attr html.Attribute) string {
 	return key
 }
 
-// Relax modifies the policy so that all elements that would be allowed by either
-// policy will now be allowed.
-//
-// Relax calls MergeModify.
-//
-// If there is a conflict on Remove, the existing one takes precedence.
-func (p *Policy) Relax(other *Policy) {
-	for tag, otherAttributeMap := range other.Allow {
-		pAttributeMap, ok := p.Allow[tag]
+// Relax relaxes the filter so that everything that would be matched by either
+// filters is now matched.
+func (f *Filter) Relax(other Filter) {
+	if (*f) == nil && other != nil {
+		(*f) = Filter{}
+	}
+	for tag, otherAttributeMap := range other {
+		pAttributeMap, ok := (*f)[tag]
 		if !ok {
-			p.Allow[tag] = maps.Clone(otherAttributeMap)
+			(*f)[tag] = maps.Clone(otherAttributeMap)
 			continue
 		}
 		orAttrMaps(pAttributeMap, otherAttributeMap)
-	}
-
-	p.MergeModify(other.ModifyAttributes)
-
-	for tag := range p.Remove {
-		_, ok := other.Remove[tag]
-		if !ok {
-			delete(p.Remove, tag)
-		}
 	}
 }
 
@@ -302,35 +298,26 @@ func orAttrMaps(this, other map[AttributeName]AttributeFilter) {
 	}
 }
 
-// Restrict modifies the policy so that all elements that would be allowed by both
-// policies will now be allowed.
-//
-// Restrict calls MergeModify.
-//
-// If there is a conflict on Remove, the existing one takes precedence.
-func (p *Policy) Restrict(other *Policy) {
-	for tag, otherAttributeMap := range other.Allow {
-		pAttributeMap, ok := p.Allow[tag]
+// Restrict restricts the filter so that only things that would be matched by both
+// filters are now matched.
+func (f *Filter) Restrict(other Filter) {
+	if f == nil {
+		return
+	}
+
+	for tag, otherAttributeMap := range other {
+		pAttributeMap, ok := (*f)[tag]
 		if !ok {
 			continue
 		}
 		andAttrMaps(pAttributeMap, otherAttributeMap)
 	}
-	for tag := range p.Allow {
-		_, ok := other.Allow[tag]
+	for tag := range *f {
+		_, ok := other[tag]
 		if ok {
 			continue
 		}
-		delete(p.Allow, tag)
-	}
-
-	p.MergeModify(other.ModifyAttributes)
-
-	for tag, repl := range other.Remove {
-		_, ok := p.Remove[tag]
-		if !ok {
-			p.Remove[tag] = repl
-		}
+		delete((*f), tag)
 	}
 }
 
@@ -350,17 +337,17 @@ func andAttrMaps(this, other map[AttributeName]AttributeFilter) {
 	}
 }
 
-// MergeModify merges into the policy all the modifiers from the other policy.
-func (p *Policy) MergeModify(other map[TagName][]AttributeModifier) {
-	if other != nil && p.ModifyAttributes == nil {
-		p.ModifyAttributes = map[TagName][]AttributeModifier{}
+// Add inserts all the provided modifiers so that all are applied.
+func (m *Modifier) Add(other Modifier) {
+	if (*m) == nil && other != nil {
+		(*m) = Modifier{}
 	}
 	for tag, otherModif := range other {
-		pModif, ok := p.ModifyAttributes[tag]
+		pModif, ok := (*m)[tag]
 		if !ok {
-			p.ModifyAttributes[tag] = slices.Clone(otherModif)
+			(*m)[tag] = slices.Clone(otherModif)
 			continue
 		}
-		p.ModifyAttributes[tag] = append(pModif, otherModif...)
+		(*m)[tag] = append(pModif, otherModif...)
 	}
 }

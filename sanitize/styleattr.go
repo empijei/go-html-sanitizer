@@ -63,11 +63,11 @@ func StyleAttribute(sf StyleFilter) AttributeModifier {
 			pos   int
 		)
 		for i, a := range *attrs {
-			switch {
-			case a.Key == "style":
-				style = &((*attrs)[i])
-				pos = i
+			if a.Key != "style" {
+				continue
 			}
+			style = &((*attrs)[i])
+			pos = i
 		}
 		if style == nil {
 			return

@@ -97,7 +97,7 @@ func AddAttributeCrossOrigin(p *sanitize.Policy) {
 	addCrossOriginMap := map[sanitize.TagName][]sanitize.AttributeModifier{
 		"audio": {add}, "img": {add}, "link": {add}, "script": {add}, "video": {add},
 	}
-	p.MergeModify(addCrossOriginMap)
+	p.ModifyAttributes.Add(addCrossOriginMap)
 }
 
 // AddAttributeTarget adds the target=_blank attribute to tags that support it.
@@ -131,7 +131,7 @@ func AddAttributeTarget(p *sanitize.Policy) {
 	addTargetMap := map[sanitize.TagName][]sanitize.AttributeModifier{
 		"a": {add}, "area": {add}, "link": {add},
 	}
-	p.MergeModify(addTargetMap)
+	p.ModifyAttributes.Add(addTargetMap)
 }
 
 var defaultRels = []string{"nofollow", "noreferrer", "ugc"}
@@ -187,7 +187,7 @@ func AddAttributeRel(p *sanitize.Policy, vals ...string) {
 	addRelMap := map[sanitize.TagName][]sanitize.AttributeModifier{
 		"a": {add}, "area": {add}, "base": {add}, "link": {add},
 	}
-	p.MergeModify(addRelMap)
+	p.ModifyAttributes.Add(addRelMap)
 }
 
 var relAddPool = mpool.New[string, struct{}]()

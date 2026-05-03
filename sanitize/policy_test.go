@@ -120,12 +120,12 @@ func TestPolicy_Sanitize(t *testing.T) {
 
 	t.Run("styles", func(t *testing.T) {
 		p := &sanitize.Policy{
-			Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
+			Allow: sanitize.Filter{
 				"b":              nil,
 				"u":              nil,
 				sanitize.AllTags: {"style": nil},
 			},
-			ModifyAttributes: map[sanitize.TagName][]sanitize.AttributeModifier{
+			ModifyAttributes: sanitize.Modifier{
 				sanitize.AllTags: {
 					sanitize.StyleAttribute(func(tag sanitize.TagName, style sanitize.StyleToken) (keep bool) {
 						switch tag {
@@ -183,7 +183,7 @@ func TestPolicy_Relax(t *testing.T) {
 				"i": nil,
 			},
 		}
-		p1.Relax(p2)
+		p1.Allow.Relax(p2.Allow)
 		got := p1.SanitizeString("<b>bold</b> <i>italic</i>")
 		tst.Is("<b>bold</b> <i>italic</i>", got, t)
 	})
@@ -200,7 +200,7 @@ func TestPolicy_Relax(t *testing.T) {
 				"a": {"title": nil},
 			},
 		}
-		p1.Relax(p2)
+		p1.Allow.Relax(p2.Allow)
 		got := p1.SanitizeString(`<a href="https://trusted.dev/" title="home">link</a>`)
 		tst.Is(`<a href="https://trusted.dev/" title="home">link</a>`, got, t)
 	})
@@ -216,23 +216,10 @@ func TestPolicy_Relax(t *testing.T) {
 				"span": {"class": func(v string) bool { return v == "blue" }},
 			},
 		}
-		p1.Relax(p2)
+		p1.Allow.Relax(p2.Allow)
 		tst.Is(`<span class="red">red</span>`, p1.SanitizeString(`<span class="red">red</span>`), t)
 		tst.Is(`<span class="blue">blue</span>`, p1.SanitizeString(`<span class="blue">blue</span>`), t)
 		tst.Is(`<span>green</span>`, p1.SanitizeString(`<span class="green">green</span>`), t)
-	})
-
-	t.Run("remove reduction", func(t *testing.T) {
-		p1 := &sanitize.Policy{
-			Remove: map[sanitize.TagName]string{"b": "REMOVED", "i": "REMOVED"},
-		}
-		p2 := &sanitize.Policy{
-			Remove: map[sanitize.TagName]string{"b": "REMOVED"},
-		}
-		p1.Relax(p2)
-		// Only "b" should be in p1.Remove now.
-		tst.Is("REMOVED", p1.SanitizeString("<b>bold</b>"), t)
-		tst.Is("italic", p1.SanitizeString("<i>italic</i>"), t)
 	})
 
 	t.Run("allow global merge", func(t *testing.T) {
@@ -249,7 +236,7 @@ func TestPolicy_Relax(t *testing.T) {
 				sanitize.AllTags: {"class": func(v string) bool { return v == "blue" }},
 			},
 		}
-		p1.Relax(p2)
+		p1.Allow.Relax(p2.Allow)
 		tst.Is(`<span class="red">red</span>`, p1.SanitizeString(`<span class="red">red</span>`), t)
 		tst.Is(`<span class="blue">blue</span>`, p1.SanitizeString(`<span class="blue">blue</span>`), t)
 	})
@@ -275,7 +262,8 @@ func TestPolicy_Relax(t *testing.T) {
 				}},
 			},
 		}
-		p1.Relax(p2)
+		p1.Allow.Relax(p2.Allow)
+		p1.ModifyAttributes.Add(p2.ModifyAttributes)
 		// Should have both modifiers.
 		got := p1.SanitizeString("<b>text</b>")
 		tst.Is(`<b class="bold" id="b1">text</b>`, got, t)
@@ -296,7 +284,7 @@ func TestPolicy_Restrict(t *testing.T) {
 				"i": nil,
 			},
 		}
-		p1.Restrict(p2)
+		p1.Allow.Restrict(p2.Allow)
 		got := p1.SanitizeString("<b>bold</b> <i>italic</i>")
 		tst.Is("bold <i>italic</i>", got, t)
 	})
@@ -312,22 +300,10 @@ func TestPolicy_Restrict(t *testing.T) {
 				"span": {"class": func(v string) bool { return strings.HasSuffix(v, "-red") }},
 			},
 		}
-		p1.Restrict(p2)
+		p1.Allow.Restrict(p2.Allow)
 		tst.Is(`<span class="text-red">red</span>`, p1.SanitizeString(`<span class="text-red">red</span>`), t)
 		tst.Is(`<span>text-blue</span>`, p1.SanitizeString(`<span class="text-blue">text-blue</span>`), t)
 		tst.Is(`<span>bg-red</span>`, p1.SanitizeString(`<span class="bg-red">bg-red</span>`), t)
-	})
-
-	t.Run("remove union", func(t *testing.T) {
-		p1 := &sanitize.Policy{
-			Remove: map[sanitize.TagName]string{"b": "REMOVED"},
-		}
-		p2 := &sanitize.Policy{
-			Remove: map[sanitize.TagName]string{"i": "REMOVED"},
-		}
-		p1.Restrict(p2)
-		tst.Is("REMOVED", p1.SanitizeString("<b>bold</b>"), t)
-		tst.Is("REMOVED", p1.SanitizeString("<i>italic</i>"), t)
 	})
 
 	t.Run("allow global intersection", func(t *testing.T) {
@@ -343,7 +319,7 @@ func TestPolicy_Restrict(t *testing.T) {
 				sanitize.AllTags: {"class": func(v string) bool { return strings.HasSuffix(v, "-red") }},
 			},
 		}
-		p1.Restrict(p2)
+		p1.Allow.Restrict(p2.Allow)
 		tst.Is(`<span class="text-red">red</span>`, p1.SanitizeString(`<span class="text-red">red</span>`), t)
 		tst.Is(`<span>text-blue</span>`, p1.SanitizeString(`<span class="text-blue">text-blue</span>`), t)
 	})

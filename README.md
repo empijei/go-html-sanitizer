@@ -30,9 +30,31 @@ This sanitizer allows to declare policies that mutate user-provided HTML into tr
 markup that can safely be embedded into a web page.
 
 Unlike other available sanitizers, it understands the DOM instead of just tokenizing
-HTML as a string. This means that potentially broken or unbalanced inputs will still
-yield correct HTML as an output, ruling out a broader spectrum of attack vectors due
-to parsing differentials or early tag termination.
+HTML as a string.
+
+This is the safest (and possibly the only safe way) to sanitize HTML.
+
+Broken or unbalanced inputs will still yield correct HTML as an output,
+ruling out a broader spectrum of attack vectors due to parsing differentials or early tag termination.
+
+For example, let's say you have an HTML template such as the following:
+
+```html
+<div class="user-content">{{.UserContent}}</div>
+```
+
+With other sanitizers, inputs like `</div>_injection_` would break out of the `user-content` class
+and potentially inject markup where you don't intend users to be able to do so:
+
+```html
+<div class="user-content"></div>_injection_</div>
+```
+
+This sanitizer prevents such attacks transforming the result as follows:
+
+```html
+<div class="user-content">_injection_</div>
+```
 
 ## Installation
 
@@ -103,17 +125,18 @@ Advanced users might specify very expressive policies via the available API, whi
 import "github.com/empijei/go-html-sanitizer/sanitize"
 
 var policy = &sanitize.Policy{
-	Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
-		"a": { // Allow a
-			"href": nil, // Allow a.href
-			"rel": nil, // Allow a.rel
+	Allow: sanitize.Filter{
+		"a": { // Allow "a"
+			"rel": nil, // Optionally allow "a.rel".
 		},
 	},
-	Must: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
-		"a": {"href": nil}, // a is only allowed if it has an href attribute.
+	Must: sanitize.Modifier{
+		"a": {
+            "href": nil, // Allow "a.href" and make sure "a" is only allowed if it has an "href" attribute.
+        },
 	},
 	URIs: policies.NewURIs(), // Allow safe URIs
-	ModifyAttributes: map[sanitize.TagName][]sanitize.AttributeModifier{
+	ModifyAttributes: sanitize.Modifier{
 		"a": {func(_ string, attrs *[]html.Attribute) {
 			// Always add a.rel with value of nofollow.
 			*attrs = append(*attrs, html.Attribute{
@@ -133,16 +156,20 @@ Please see the full policy documentation [on pkg.go.dev](https://pkg.go.dev/gith
 
 ## Advanced Features
 
-### Policy Composition
+### Composition
 
-Policies can be combined using `Relax` (OR) and `Restrict` (AND) operations:
+Filters can be combined using `Relax` (OR) and `Restrict` (AND) operations:
 
 ```go
-// Allow what is allowed in either policy
-policyA.Relax(policyB)
+// Match what is matched by either filter.
+filterA.Relax(filterB)
 
-// Allow only what is allowed in both policies
-policyA.Restrict(policyB)
+// Match what is matched by both filters.
+filterA.Restrict(filterB)
+
+// Only allow what is allowed by both policies.
+// (This doesn't affect Must or Replace).
+policyA.Allow.Restrict(policyB.Allow)
 ```
 
 ### Style Attribute Sanitization
@@ -162,10 +189,10 @@ myStyleModifier := sanitize.StyleAttribute(func(tag sanitize.TagName, style sani
 })
 
 p := &sanitize.Policy{
-	Allow: map[sanitize.TagName]map[sanitize.AttributeName]sanitize.AttributeFilter{
+	Allow: sanitize.Filter{
 		sanitize.AllTags: {"style": nil}, // Allow all style attributes.
 	},
-	ModifyAttributes: map[sanitize.TagName][]sanitize.AttributeModifier{
+	ModifyAttributes: sanitize.Modifier{
         // Modify all style attributes with our modifier.
 		sanitize.AllTags: { myStyleModifier },
 	},
